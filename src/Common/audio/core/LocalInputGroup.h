@@ -3,26 +3,27 @@
 
 #include <QList>
 
-namespace Audio {
+namespace audio {
 
 class LocalInputNode;
 class SamplesBuffer;
 
 class LocalInputGroup
 {
+
 public:
-    LocalInputGroup(int groupIndex, Audio::LocalInputNode *firstInput);
+    LocalInputGroup(int groupIndex, audio::LocalInputNode *firstInput);
     ~LocalInputGroup();
 
     bool isEmpty() const;
 
-    void addInputNode(Audio::LocalInputNode *input);
+    void addInputNode(audio::LocalInputNode *input);
 
     int getIndex() const;
 
-    void mixGroupedInputs(Audio::SamplesBuffer &out);
+    void mixGroupedInputs(audio::SamplesBuffer &out);
 
-    void removeInput(Audio::LocalInputNode *input);
+    void removeInput(audio::LocalInputNode *input);
 
     int getMaxInputChannelsForEncoding() const;
 
@@ -30,12 +31,17 @@ public:
 
     void setTransmitingStatus(bool transmiting);
 
-    Audio::LocalInputNode *getInputNode(quint8 index) const;
+    bool isVoiceChatActivated() const;
+
+    void setVoiceChatStatus(bool voiceChat);
+
+    audio::LocalInputNode *getInputNode(quint8 index) const;
 
 private:
     int groupIndex;
-    QList<Audio::LocalInputNode *> groupedInputs;
+    QList<audio::LocalInputNode *> groupedInputs;
     bool transmiting;
+    bool voiceChatActivated;
 };
 
 inline bool LocalInputGroup::isTransmiting() const
@@ -53,6 +59,6 @@ inline bool LocalInputGroup::isEmpty() const
     return groupedInputs.empty();
 }
 
-}//namespace
+} //namespace
 
 #endif

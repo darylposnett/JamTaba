@@ -6,9 +6,8 @@
 #include <QMutexLocker>
 #include "log/Logging.h"
 
-using namespace Audio;
-
-// +++++++++++++++++++++
+using audio::ChannelRange;
+using audio::AudioDriver;
 
 ChannelRange::ChannelRange(int firstChannel, int channelsCount) :
     firstChannel(firstChannel),
@@ -24,6 +23,7 @@ ChannelRange::ChannelRange() :
     firstChannel(-1),
     channelsCount(0)
 {
+
 }
 
 void ChannelRange::setToStereo()
@@ -37,23 +37,24 @@ void ChannelRange::setToMono()
 }
 
 // +++++++++++++++++++++++++++++++++++++++++++
-AudioDriver::AudioDriver(Controller::MainController *mainController) :
+AudioDriver::AudioDriver(controller::MainController *mainController) :
     globalInputRange(0, 0),
     globalOutputRange(0, 0),
-    audioDeviceIndex(0),
+    audioInputDeviceIndex(-1),
+    audioOutputDeviceIndex(-1),
     sampleRate(44100),
     bufferSize(128),
-    inputBuffer(nullptr),
-    outputBuffer(nullptr),
+    inputBuffer(SamplesBuffer(2)),
+    outputBuffer(SamplesBuffer(2)),
     mainController(mainController)
 {
+
 }
 
 void AudioDriver::recreateBuffers()
 {
-    inputBuffer.reset(new SamplesBuffer(globalInputRange.getChannels()));
-
-    outputBuffer.reset(new SamplesBuffer(globalOutputRange.getChannels()));
+    inputBuffer = SamplesBuffer(globalInputRange.getChannels());
+    outputBuffer = SamplesBuffer(globalOutputRange.getChannels());
 }
 
 AudioDriver::~AudioDriver()

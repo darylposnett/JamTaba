@@ -2,37 +2,60 @@
 #define NINJAMTRACKGROUPVIEW_H
 
 #include "TrackGroupView.h"
-#include <QLabel>
-#include "MarqueeLabel.h"
 #include "NinjamTrackView.h"
+#include "widgets/MarqueeLabel.h"
+#include "video/VideoWidget.h"
 
-namespace Controller {
+#include <QLabel>
+#include <QBoxLayout>
+
+namespace controller {
 class MainController;
 }
 
-namespace Persistence {
+namespace persistence {
 class CacheEntry;
 }
+
+enum class TracksLayout
+{
+    VerticalLayout,
+    HorizontalLayout,
+    GridLayout
+};
 
 class NinjamTrackGroupView : public TrackGroupView
 {
     Q_OBJECT
+
 public:
-    NinjamTrackGroupView(Controller::MainController *mainController, long trackID,
-                         const QString &channelName, const QColor &userColor, const Persistence::CacheEntry &initialValues);
+    NinjamTrackGroupView(controller::MainController *mainController, long trackID,
+                         const QString &channelName, NinjamTrackNode::ChannelMode channelMode, const QColor &userColor, const persistence::CacheEntry &initialValues);
     ~NinjamTrackGroupView();
     void setNarrowStatus(bool narrow);
     void updateGeoLocation();
-    void setGroupName(const QString &groupName);
-    QString getGroupName() const override;
-    void updateGuiElements();
+    void setUserName(const QString &groupName);
+    void updateGuiElements() override;
     void setEstimatedChunksPerInterval(int estimatedChunks);
 
     NinjamTrackView *addTrackView(long trackID) override;
 
-    void setOrientation(Qt::Orientation orientation);
+    void setTracksLayout(TracksLayout newLayout);
 
     QSize sizeHint() const override;
+
+    void addVideoInterval(const QByteArray &encodedVideoData);
+
+    QColor getTintColor() const;
+
+    static const uint MAX_WIDTH_IN_GRID_LAYOUT;
+    static const uint MAX_HEIGHT_IN_GRID_LAYOUT;
+
+signals:
+    void createPrivateChat(const QString &userName, const QString &userIP);
+
+public slots:
+    void updateVideoFrame(const QImage &frame);
 
 protected:
     NinjamTrackView *createTrackView(long trackID) override;
@@ -40,17 +63,32 @@ protected:
     void populateContextMenu(QMenu &contextMenu) override;
 
 private:
-    Controller::MainController *mainController;
+    controller::MainController *mainController;
     QLabel *countryLabel;
-    MarqueeLabel *groupNameLabel;
+    QLabel *countryFlag;
+    MarqueeLabel *userNameLabel;
     QLabel *chatBlockIconLabel;
     QString userIP;
-    Qt::Orientation orientation;
+    TracksLayout tracksLayoutEnum;
+
+    VideoWidget *videoWidget;
+    QByteArray encodedVideoData;
+    quint64 lastVideoRender;
+    QList<QList<QImage>> decodedImages;
+    uint videoFrameRate;
+    uint intervalsWithoutReceiveVideo;
 
     void setupHorizontalLayout();
     void setupVerticalLayout();
+    void setupGridLayout();
 
     QString getRgbaColorString(const QColor &color, int alpha);
+
+    Qt::Orientation getTracksOrientation() const;
+
+    void resetMainLayoutStretch();
+
+    QString getUniqueName() const;
 
 private slots:
     void updateGeoLocation(const QString &resolvedIp);
@@ -58,6 +96,8 @@ private slots:
     void unblockChatMessages();
     void hideChatBlockIcon(const QString &unblockedUserName);
     void showChatBlockIcon(const QString &blockedUserName);
+
+    void startVideoStream();
 };
 
 #endif // NINJAMTRACKGROUPVIEW_H

@@ -17,12 +17,21 @@
 #include <QMutexLocker>
 #include <QFile>
 
-using namespace Audio;
+namespace audio {
+class Mp3Decoder;
+}
+
+using audio::AbstractMp3Streamer;
+using audio::NinjamRoomStreamerNode;
+using audio::AudioFileStreamerNode;
+using audio::Mp3Decoder;
+using audio::Mp3DecoderMiniMp3;
+using audio::SamplesBuffer;
 
 const int AbstractMp3Streamer::MAX_BYTES_PER_DECODING = 2048;
 
 // +++++++++++++
-AbstractMp3Streamer::AbstractMp3Streamer(Audio::Mp3Decoder *decoder) :
+AbstractMp3Streamer::AbstractMp3Streamer(Mp3Decoder *decoder) :
     decoder(decoder),
     device(nullptr),
     streaming(false),
@@ -59,9 +68,7 @@ int AbstractMp3Streamer::getSamplesToRender(int targetSampleRate, int outLenght)
     return samplesToRender;
 }
 
-void AbstractMp3Streamer::processReplacing(const Audio::SamplesBuffer &in,
-                                           Audio::SamplesBuffer &out, int targetSampleRate,
-                                           std::vector<Midi::MidiMessage> &)
+void AbstractMp3Streamer::processReplacing(const SamplesBuffer &in, SamplesBuffer &out, int targetSampleRate, std::vector<midi::MidiMessage> &)
 {
     Q_UNUSED(in);
 
@@ -76,8 +83,7 @@ void AbstractMp3Streamer::processReplacing(const Audio::SamplesBuffer &in,
     internalInputBuffer.set(bufferedSamples);
 
     if (needResamplingFor(targetSampleRate)) {
-        const Audio::SamplesBuffer &resampledBuffer = resampler.resample(internalInputBuffer,
-                                                                         out.getFrameLenght());
+        const auto &resampledBuffer = resampler.resample(internalInputBuffer, out.getFrameLenght());
         internalOutputBuffer.setFrameLenght(resampledBuffer.getFrameLenght());
         internalOutputBuffer.set(resampledBuffer);
     } else {
@@ -126,13 +132,13 @@ void AbstractMp3Streamer::decode(const unsigned int maxBytesToDecode)
             // chunks maxsize is 2048 bytes
             int bytesToProcess = std::min((int)(totalBytesToProcess - bytesProcessed),
                                           MAX_BYTES_PER_DECODING);
-            const Audio::SamplesBuffer *decodedBuffer = decoder->decode(in, bytesToProcess);
+            const auto &decodedBuffer = decoder->decode(in, bytesToProcess);
 
             // prepare in for the next decoding
             in += bytesToProcess;
             bytesProcessed += bytesToProcess;
             // +++++++++++++++++  PROCESS DECODED SAMPLES ++++++++++++++++
-            bufferedSamples.append(*decodedBuffer);
+            bufferedSamples.append(decodedBuffer);
         }
 
         bytesToDecode = bytesToDecode.right(bytesToDecode.size() - bytesProcessed);
@@ -167,18 +173,18 @@ bool NinjamRoomStreamerNode::needResamplingFor(int targetSampleRate) const
 void NinjamRoomStreamerNode::initialize(const QString &streamPath)
 {
     AbstractMp3Streamer::initialize(streamPath);
+
     buffering = true;
     bufferedSamples.zero();
     bytesToDecode.clear();
+
     if (!streamPath.isEmpty()) {
+
         qCDebug(jtNinjamRoomStreamer) << "connecting in " << streamPath;
-        if (httpClient)
-            httpClient->deleteLater();
-        httpClient = new QNetworkAccessManager(this);
-        QNetworkReply *reply = httpClient->get(QNetworkRequest(QUrl(streamPath)));
+
+        QNetworkReply *reply = httpClient.get(QNetworkRequest(QUrl(streamPath)));
         QObject::connect(reply, SIGNAL(readyRead()), this, SLOT(on_reply_read()));
-        QObject::connect(reply, SIGNAL(error(QNetworkReply::NetworkError)), this,
-                         SLOT(on_reply_error(QNetworkReply::NetworkError)));
+        QObject::connect(reply, SIGNAL(error(QNetworkReply::NetworkError)), this, SLOT(on_reply_error(QNetworkReply::NetworkError)));
         this->device = reply;
     }
 }
@@ -213,7 +219,7 @@ NinjamRoomStreamerNode::~NinjamRoomStreamerNode()
 }
 
 void NinjamRoomStreamerNode::processReplacing(const SamplesBuffer &in, SamplesBuffer &out,
-                                              int sampleRate, std::vector<Midi::MidiMessage> &midiBuffer)
+                                              int sampleRate, std::vector<midi::MidiMessage> &midiBuffer)
 {
     Q_UNUSED(in)
     QMutexLocker locker(&mutex);
@@ -268,7 +274,7 @@ AudioFileStreamerNode::~AudioFileStreamerNode()
 }
 
 void AudioFileStreamerNode::processReplacing(const SamplesBuffer &in, SamplesBuffer &out,
-                                             int sampleRate, std::vector<Midi::MidiMessage> &midiBuffer)
+                                             int sampleRate, std::vector<midi::MidiMessage> &midiBuffer)
 {
     while (bufferedSamples.getFrameLenght() < out.getFrameLenght())
         decode(1024 + 1024);

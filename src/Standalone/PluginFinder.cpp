@@ -2,13 +2,14 @@
 #include "audio/core/PluginDescriptor.h"
 #include "log/Logging.h"
 
-using namespace audio;
+using audio::PluginFinder;
+using audio::PluginDescriptor;
 
-// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 void PluginFinder::finishScan()
 {
     QProcess::ExitStatus exitStatus = scanProcess.exitStatus();
-    scanProcess.close();
+    if (exitStatus!= QProcess::ExitStatus::CrashExit) // do not try to close an already crashed exit process
+        scanProcess.close();
     bool exitingWithoutError = exitStatus == QProcess::NormalExit;
 
     qCDebug(jtStandalonePluginFinder) << "Closing scan process! exited without error:" << exitingWithoutError;
@@ -16,9 +17,9 @@ void PluginFinder::finishScan()
     emit scanFinished(exitingWithoutError);
     QString lastScanned(lastScannedPlugin);
     lastScannedPlugin.clear();
+
     if (!exitingWithoutError)
         handleProcessError(lastScanned);
-
 }
 
 void PluginFinder::handleScanError(QProcess::ProcessError error)
@@ -60,7 +61,7 @@ void PluginFinder::scan(const QStringList &scanFolders, const QStringList &skipL
 
     QString scannerExePath = getScannerExecutablePath();
     if (scannerExePath.isEmpty())
-        return;// scanner executable not found!
+        return; // scanner executable not found!
 
     emit scanStarted();
     // execute the scanner in another process to avoid crash Jamtaba process
@@ -74,8 +75,11 @@ void PluginFinder::scan(const QStringList &scanFolders, const QStringList &skipL
                      SLOT(handleScanError(QProcess::ProcessError)));
 
     scanProcess.start(scannerExePath, parameters);
-    qCDebug(jtStandalonePluginFinder) << "Scan process started with " << scannerExePath
-                                          << " (PID: " << scanProcess.processId() << ")";
+
+    qCDebug(jtStandalonePluginFinder)
+            << "Scan process started with "
+            << scannerExePath
+            << " (PID: " << scanProcess.processId() << ")";
 }
 
 void PluginFinder::cancel()

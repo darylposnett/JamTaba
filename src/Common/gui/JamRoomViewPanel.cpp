@@ -2,15 +2,17 @@
 #include "ui_JamRoomViewPanel.h"
 
 #include <QDebug>
-#include "MainController.h"
-#include "ninjam/User.h"
-#include "ninjam/UserChannel.h"
-#include "ninjam/Server.h"
-#include "MapWidget.h"
-#include "MapMarker.h"
+#include <QButtonGroup>
 
-JamRoomViewPanel::JamRoomViewPanel(const Login::RoomInfo &roomInfo,
-                                   Controller::MainController *mainController) :
+#include "MainController.h"
+#include "ninjam/client/User.h"
+#include "ninjam/client/UserChannel.h"
+#include "ninjam/client/ServerInfo.h"
+#include "widgets/MapWidget.h"
+#include "widgets/MapMarker.h"
+#include <QStyle>
+
+JamRoomViewPanel::JamRoomViewPanel(const login::RoomInfo &roomInfo, controller::MainController *mainController) :
     QFrame(nullptr),
     ui(new Ui::JamRoomViewPanel),
     mainController(mainController),
@@ -18,11 +20,11 @@ JamRoomViewPanel::JamRoomViewPanel(const Login::RoomInfo &roomInfo,
 {
     ui->setupUi(this);
 
-    ui->wavePeakPanel->setEnabled(false);// is enable when user click in listen button
+    ui->wavePeakPanel->setEnabled(false); // is enable when user click in listen button
 
-    connect(mainController, &Controller::MainController::ipResolved, this, &JamRoomViewPanel::updateUserLocation);
     connect(ui->buttonListen, &QPushButton::clicked, this, &JamRoomViewPanel::toggleRoomListening);
     connect(ui->buttonEnter, &QPushButton::clicked, this, &JamRoomViewPanel::enterInTheRoom);
+    connect(mainController, &controller::MainController::ipResolved, this, &JamRoomViewPanel::updateUserLocation);
 
     createMapWidgets();
 
@@ -42,7 +44,7 @@ JamRoomViewPanel::JamRoomViewPanel(const Login::RoomInfo &roomInfo,
     mapWidgetLayout->addLayout(waveDrawingButtonsLayout);
     mapWidgetLayout->setAlignment(waveDrawingButtonsLayout, Qt::AlignBottom);
 
-    //'remember' the wave drawing mode
+    // 'remember' the wave drawing mode
     WavePeakPanel::WaveDrawingMode lastDrawingMode = static_cast<WavePeakPanel::WaveDrawingMode>(mainController->getLastWaveDrawingMode());
     setWaveDrawingMode(lastDrawingMode);
 
@@ -116,8 +118,8 @@ void JamRoomViewPanel::createMapWidgets()
 void JamRoomViewPanel::updateUserLocation(const QString &userIP)
 {
     Q_UNUSED(userIP)
-    for (const Login::UserInfo &user : roomInfo.getUsers()) {
-        if (user.getIp() == userIP) {
+    for (const auto &user : roomInfo.getUsers()) {
+        if (ninjam::client::maskIP(user.getIp()) == ninjam::client::maskIP(userIP)) {
             updateMap();
             update();
             break;
@@ -154,7 +156,7 @@ QString JamRoomViewPanel::buildRoomDescriptionString()
 
     if (roomInfo.getBpm() > 0)
         roomDescription += "  " + QString::number(roomInfo.getBpm()) + " BPM ";
-    if (roomInfo.getType() == Login::RoomTYPE::NINJAM && roomInfo.getBpi() > 0)
+    if (roomInfo.getBpi() > 0)
         roomDescription += "  " + QString::number(roomInfo.getBpi()) + " BPI";
     return roomDescription;
 }
@@ -162,18 +164,16 @@ QString JamRoomViewPanel::buildRoomDescriptionString()
 void JamRoomViewPanel::updateMap()
 {
     if (!roomInfo.isEmpty()) {
-        QList<Login::UserInfo> userInfos = roomInfo.getUsers();
+        QList<login::UserInfo> userInfos = roomInfo.getUsers();
         qSort(userInfos.begin(), userInfos.end(), userInfoLessThan);
         QList<MapMarker> newMarkers;
-        foreach (const Login::UserInfo &user, userInfos) {
+        for (const auto &user : userInfos) {
             if (!userIsBot(user)) {
-                Geo::Location userLocation = mainController->getGeoLocation(user.getIp());
-                if (userLocation.isUnknown())
-                    continue; // skip invalid locations
+                auto userLocation = user.getLocation();
 
-                QPointF latLong(userLocation.getLatitude(), userLocation.getLongitude());
-                QPixmap flag(":/flags/flags/" + userLocation.getCountryCode().toLower() + ".png");
-                MapMarker marker(user.getName(), userLocation.getCountryName(), latLong, flag.toImage());
+                QPointF latLong(userLocation.latitude, userLocation.longitude);
+                QPixmap flag(":/flags/flags/" + userLocation.countryCode.toLower() + ".png");
+                MapMarker marker(user.getName(), userLocation.countryName, latLong, flag.toImage());
                 newMarkers.append(marker);
             }
         }
@@ -185,7 +185,7 @@ void JamRoomViewPanel::updateMap()
     map->update();
 }
 
-void JamRoomViewPanel::refresh(const Login::RoomInfo &roomInfo)
+void JamRoomViewPanel::refresh(const login::RoomInfo &roomInfo)
 {
     this->roomInfo = roomInfo;
 
@@ -222,21 +222,13 @@ void JamRoomViewPanel::updateStyleSheet()
 
 void JamRoomViewPanel::updateButtonListen()
 {
-    ui->buttonListen->setEnabled(roomInfo.hasStream() && !roomInfo.isEmpty());
-
-    if (!roomInfo.hasStream()) {
-        ui->buttonListen->setIcon(QIcon(":/images/warning.png"));
-        ui->buttonListen->setToolTip(tr("The audio stream of this room is not available at moment!"));
-    } else {
-        ui->buttonListen->setIcon(QIcon());// remove the icon
-        ui->buttonListen->setToolTip("");// clean the tooltip
-    }
+    ui->buttonListen->setVisible(roomInfo.hasStream() && !roomInfo.isEmpty());
 
     style()->unpolish(ui->buttonListen);
     style()->polish(ui->buttonListen);
 }
 
-bool JamRoomViewPanel::userInfoLessThan(const Login::UserInfo &u1, const Login::UserInfo &u2)
+bool JamRoomViewPanel::userInfoLessThan(const login::UserInfo &u1, const login::UserInfo &u2)
 {
     return u1.getName() < u2.getName();
 }
@@ -256,35 +248,31 @@ void JamRoomViewPanel::setBufferingPercentage(int percentage)
     ui->wavePeakPanel->setBufferingPercentage(percentage);
 }
 
-bool JamRoomViewPanel::userIsBot(const Login::UserInfo &userInfo)
+bool JamRoomViewPanel::userIsBot(const login::UserInfo &userInfo)
 {
     return mainController->getBotNames().contains(userInfo.getName());
 }
 
-bool JamRoomViewPanel::roomContainsBotsOnly(const Login::RoomInfo &roomInfo)
+bool JamRoomViewPanel::roomContainsBotsOnly(const login::RoomInfo &roomInfo)
 {
     QStringList botsNames = mainController->getBotNames();
-    foreach (const Login::UserInfo &user, roomInfo.getUsers()) {
+    for (const auto &user : roomInfo.getUsers()) {
         if (!botsNames.contains(user.getName()))
             return false;
     }
     return true;
 }
 
-bool JamRoomViewPanel::canShowNinjamServerPort(const QString &serverName)
-{
-    return serverName.startsWith("ninbot") || serverName.startsWith("ninjamer");
-}
-
-void JamRoomViewPanel::initialize(const Login::RoomInfo &roomInfo)
+void JamRoomViewPanel::initialize(const login::RoomInfo &roomInfo)
 {
     QString roomName = roomInfo.getName();
     if (roomName.endsWith(".com"))
         roomName = roomName.replace(".com", "");
 
-    if (roomInfo.getType() == Login::RoomTYPE::NINJAM && canShowNinjamServerPort(roomName))
         roomName += " (" + QString::number(roomInfo.getPort()) + ")";
+
     ui->labelName->setText(roomName);
+
     refresh(roomInfo);
 }
 
@@ -297,8 +285,10 @@ void JamRoomViewPanel::clear(bool resetListenButton)
 {
     ui->wavePeakPanel->clearPeaks();
     ui->wavePeakPanel->setShowBuffering(false);
+
     if (resetListenButton)
         ui->buttonListen->setChecked(false);
+
     updateButtonListen();
     updateStyleSheet();
 

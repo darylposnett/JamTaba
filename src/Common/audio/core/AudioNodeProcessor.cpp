@@ -3,11 +3,12 @@
 #include "midi/MidiDriver.h"
 #include "audio/core/SamplesBuffer.h"
 
-using namespace Audio;
+using audio::AudioNodeProcessor;
 
 AudioNodeProcessor::AudioNodeProcessor() :
     bypassed(false)
 {
+
 }
 
 void AudioNodeProcessor::setBypass(bool state)

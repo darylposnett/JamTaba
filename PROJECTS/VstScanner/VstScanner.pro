@@ -20,7 +20,8 @@ win32{
         DESTDIR = $$OUT_PWD/../Standalone/release
     }
 }
-message("Generating VstScanner executable in" $$DESTDIR)
+
+#message("Generating VstScanner executable in" $$DESTDIR)
 
 TEMPLATE = app
 
@@ -29,7 +30,7 @@ SOURCE_PATH = $$ROOT_PATH/src
 
 INCLUDEPATH += $$SOURCE_PATH/Common
 INCLUDEPATH += $$SOURCE_PATH/Scanners
-INCLUDEPATH += $$ROOT_PATH/VST_SDK/pluginterfaces/vst2.x
+INCLUDEPATH += $$ROOT_PATH/VST_SDK/VST2_SDK/pluginterfaces/vst2.x
 
 VPATH       += $$SOURCE_PATH/Common
 VPATH       += $$SOURCE_PATH/Scanners
@@ -76,10 +77,11 @@ win32{
 
 
 macx{
-    message("VstScanner Mac build")
+    # message("VstScanner Mac build")
 
     QMAKE_CXXFLAGS_WARN_ON += -Wno-reorder
     LIBS+= -dead_strip
+    LIBS += -framework Cocoa
 
     #mac osx doc icon
     ICON = Jamtaba.icns

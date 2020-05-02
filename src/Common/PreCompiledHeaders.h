@@ -1,8 +1,11 @@
 #ifndef PRECOMPILEDHEADERS
 #define PRECOMPILEDHEADERS
 
-/*** these are the common pre compiled headers for the Jamtaba subdirs. The specific pre compiled header
- for each subdir are defined in other files inside the subdirs. */
+/**
+    These are the common pre compiled headers for the Jamtaba subdirs. The specific pre compiled header
+    for each subdir are defined in other files inside the subdirs.
+
+*/
 
 // C includes are added here
 
@@ -39,7 +42,6 @@
 #include <QGuiApplication>
 #include <QGridLayout>
 #include <QHBoxLayout>
-#include <QHostAddress>
 #include <QInputDialog>
 #include <QJsonArray>
 #include <QJsonDocument>

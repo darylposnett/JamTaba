@@ -1,20 +1,19 @@
 #include "LocalTrackViewStandalone.h"
 #include "audio/core/LocalInputNode.h"
+#include "audio/core/Plugins.h"
 #include "FxPanel.h"
 #include "FxPanelItem.h"
+#include "gui/widgets/BoostSpinBox.h"
+#include "gui/IconFactory.h"
+#include "log/Logging.h"
+
 #include <QGridLayout>
 #include <QStyle>
 #include <QSlider>
 #include <QPainter>
 #include <QDesktopWidget>
 
-const QString LocalTrackViewStandalone::MIDI_ICON = ":/images/input_midi.png";
-const QString LocalTrackViewStandalone::MONO_ICON = ":/images/input_mono.png";
-const QString LocalTrackViewStandalone::STEREO_ICON = ":/images/input_stereo.png";
-const QString LocalTrackViewStandalone::NO_INPUT_ICON = ":/images/input_no.png";
-
-LocalTrackViewStandalone::LocalTrackViewStandalone(
-    Controller::MainControllerStandalone *mainController, int channelIndex) :
+LocalTrackViewStandalone::LocalTrackViewStandalone(controller::MainControllerStandalone *mainController, int channelIndex) :
     LocalTrackView(mainController, channelIndex),
     controller(mainController),
     midiToolsDialog(nullptr),
@@ -46,14 +45,22 @@ LocalTrackViewStandalone::LocalTrackViewStandalone(
     midiPeakMeter->setSolidColor(QColor(180, 0, 0));
     midiPeakMeter->setDecayTime(1000);// 1000 ms
     midiPeakMeter->setAccessibleDescription("This is the midi activity meter");
-    metersLayout->insertWidget(1, midiPeakMeter);
+    secondaryChildsLayout->insertWidget(0, midiPeakMeter, 1, Qt::AlignHCenter);
+    secondaryChildsLayout->insertSpacerItem(1, new QSpacerItem(1, 6, QSizePolicy::Maximum, QSizePolicy::MinimumExpanding)); // keep the buttons in bottom when midiActivityMeter is not visible
 
     inputSelectionButton->installEventFilter(this);
 
-    Audio::LocalInputNode *inputNode = getInputNode();
-    connect(inputNode, &Audio::LocalInputNode::midiNoteLearned, this, &LocalTrackViewStandalone::useLearnedMidiNote);
+    auto inputNode = getInputNode();
+    connect(inputNode, &audio::LocalInputNode::midiNoteLearned, this, &LocalTrackViewStandalone::useLearnedMidiNote);
 
     translateUI();
+}
+
+void LocalTrackViewStandalone::setTintColor(const QColor &color)
+{
+    LocalTrackView::setTintColor(color);
+
+    updateInputIcon();
 }
 
 void LocalTrackViewStandalone::setToMidi()
@@ -96,13 +103,13 @@ void LocalTrackViewStandalone::paintRoutingMidiArrow(int topMargin, int arrowSiz
     y = topMargin;
     painter.drawLine(x-1, y, leftMargin + arrowSize, y);
 
-    if (drawMidiWord) { // the MIDI word is not drawd when local tracks are collapsed
+    if (drawMidiWord) { // the MIDI word is not drawed when local tracks are collapsed
         // draw MIDI word
         QString text("MIDI");
         static const QFont smallFont(font().family(), 5);
         setFont(smallFont);
-        int textX = leftMargin + arrowSize + 1;
-        painter.drawText(textX, fontMetrics().height() + 1, text);
+        int textX = midiPeakMeter->x() - fontMetrics().width(text) - 3;
+        painter.drawText(textX, y + fontMetrics().height() + 1, text);
     }
 
     // draw arrow in left side
@@ -124,12 +131,12 @@ void LocalTrackViewStandalone::paintReceivingRoutedMidiIndicator(int topMargin)
 
     const int rightMargin = 2;
 
-    int metersCenter = peakMeter->x() + peakMeter->width()/2.0;
-    if (midiPeakMeter->isVisible())
-        metersCenter = midiPeakMeter->x() + midiPeakMeter->width()/2.0;
+    int metersCenter = midiPeakMeter->x() + midiPeakMeter->width()/2.0;
+    if (peakMetersOnly)
+        metersCenter = levelSlider->x() + levelSlider->width()/2.0;
 
     int x1 = metersCenter - 2;
-    int y = peakMeter->y() - 2;
+    int y = midiPeakMeter->y() - 2;
     int x2 = metersCenter + 2;
 
     // draw the vertical line
@@ -146,7 +153,7 @@ void LocalTrackViewStandalone::paintEvent(QPaintEvent *ev)
 {
     LocalTrackView::paintEvent(ev);
 
-    const int topMargin = isShowingPeakMetersOnly() ? 4 : 2;
+    const int topMargin = levelSlider->y() - 6;
     static const int arrowSize = 4;
 
     if (inputNode->isRoutingMidiInput()) {
@@ -188,6 +195,7 @@ void LocalTrackViewStandalone::updateGuiElements()
         midiPeakMeter->setActivityValue(midiActivityValue/127.0);
         inputNode->resetMidiActivity();
     }
+
     if (midiPeakMeter->isVisible())
         midiPeakMeter->update();
 }
@@ -209,7 +217,7 @@ QLabel *LocalTrackViewStandalone::createInputTypeIconLabel(QWidget *parent)
     QLabel *label = new QLabel(parent);
     label->setObjectName(QStringLiteral("inputSelectionIcon"));
     label->setTextFormat(Qt::RichText);
-    label->setSizePolicy(QSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding));
+    label->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
     return label;
 }
 
@@ -217,8 +225,7 @@ QPushButton *LocalTrackViewStandalone::createInputSelectionButton(QWidget *paren
 {
     QPushButton *fakeComboButton = new QPushButton(parent);
     fakeComboButton->setObjectName(QStringLiteral("inputSelectionButton"));
-    fakeComboButton->setSizePolicy(QSizePolicy(QSizePolicy::MinimumExpanding,
-                                               QSizePolicy::MinimumExpanding));
+    fakeComboButton->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
 
     QObject::connect(fakeComboButton, SIGNAL(clicked()), this, SLOT(showInputSelectionMenu()));
 
@@ -232,7 +239,7 @@ QWidget *LocalTrackViewStandalone::createInputPanel()
     inputPanel->setLayout(new QHBoxLayout(inputPanel));
     inputPanel->layout()->setContentsMargins(0, 0, 0, 0);
     inputPanel->layout()->setSpacing(0);
-    inputPanel->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum));
+    inputPanel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum);
 
     this->inputSelectionButton = createInputSelectionButton(inputPanel);
     inputPanel->layout()->addWidget(inputSelectionButton);// button in right
@@ -244,7 +251,7 @@ QPushButton *LocalTrackViewStandalone::createMidiToolsButton()
 {
     QPushButton * button = new QPushButton();
     button->setObjectName(QStringLiteral("midiToolsButton"));
-    button->setSizePolicy(QSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed));
+    button->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     button->setVisible(false);
     connect(button, SIGNAL(clicked(bool)), this, SLOT(openMidiToolsDialog()));
     return button;
@@ -254,7 +261,7 @@ void LocalTrackViewStandalone::setAudioRelatedControlsStatus(bool enableControls
 {
 
     QWidget *controls[] = {
-        buttonBoost,
+        boostSpinBox,
         soloButton,
         muteButton,
         buttonStereoInversion,
@@ -262,7 +269,7 @@ void LocalTrackViewStandalone::setAudioRelatedControlsStatus(bool enableControls
         dynamic_cast<QWidget *>(levelSlider)
     };
 
-    for (QWidget *control: controls) {
+    for (QWidget *control : controls) {
         control->setEnabled(enableControls);
     }
 
@@ -282,7 +289,7 @@ void LocalTrackViewStandalone::setMidiRouting(bool routingMidiToFirstSubchannel)
 
 bool LocalTrackViewStandalone::isFirstSubchannel() const
 {
-    Audio::LocalInputNode *firstSubchannel = mainController->getInputTrackInGroup(inputNode->getChanneGrouplIndex(), 0);
+    auto firstSubchannel = mainController->getInputTrackInGroup(inputNode->getChanneGroupIndex(), 0);
 
     return firstSubchannel == this->inputNode;
 }
@@ -291,7 +298,7 @@ void LocalTrackViewStandalone::openMidiToolsDialog()
 {
     if (!midiToolsDialog) {
         qCDebug(jtGUI) << "Creating a new MidiToolsDialog!";
-        Audio::LocalInputNode *inputNode = getInputNode();
+        auto inputNode = getInputNode();
         QString higherNote = getMidiNoteText(inputNode->getMidiHigherNote());
         QString lowerNote = getMidiNoteText(inputNode->getMidiLowerNote());
         qint8 transpose = inputNode->getTranspose();
@@ -332,7 +339,7 @@ void LocalTrackViewStandalone::toggleMidiNoteLearn(bool buttonClicked)
 
 void LocalTrackViewStandalone::startMidiNoteLearn()
 {
-    Audio::LocalInputNode *inputNode = getInputNode();
+    auto inputNode = getInputNode();
     if (inputNode) {
         inputNode->startMidiNoteLearn();
     }
@@ -340,7 +347,7 @@ void LocalTrackViewStandalone::startMidiNoteLearn()
 
 void LocalTrackViewStandalone::stopMidiNoteLearn()
 {
-    Audio::LocalInputNode *inputNode = getInputNode();
+    auto inputNode = getInputNode();
     if (inputNode) {
         inputNode->stopMidiNoteLearn();
     }
@@ -348,7 +355,7 @@ void LocalTrackViewStandalone::stopMidiNoteLearn()
 
 void LocalTrackViewStandalone::setTranspose(qint8 transposeValue)
 {
-     Audio::LocalInputNode *inputNode = getInputNode();
+     auto inputNode = getInputNode();
      if (inputNode) {
          inputNode->setTranspose(transposeValue);
      }
@@ -356,7 +363,7 @@ void LocalTrackViewStandalone::setTranspose(qint8 transposeValue)
 
 void LocalTrackViewStandalone::setMidiHigherNote(const QString &higherNote)
 {
-    Audio::LocalInputNode *inputNode = getInputNode();
+    auto inputNode = getInputNode();
     if (inputNode) {
         quint8 noteNumber = getMidiNoteNumber(higherNote);
         inputNode->setMidiHigherNote(noteNumber);
@@ -365,7 +372,7 @@ void LocalTrackViewStandalone::setMidiHigherNote(const QString &higherNote)
 
 void LocalTrackViewStandalone::setMidiLowerNote(const QString &lowerNote)
 {
-    Audio::LocalInputNode *inputNode = getInputNode();
+    auto inputNode = getInputNode();
     if (inputNode) {
         quint8 noteNumber = getMidiNoteNumber(lowerNote);
         inputNode->setMidiLowerNote(noteNumber);
@@ -395,7 +402,7 @@ QString LocalTrackViewStandalone::getMidiNoteText(quint8 midiNoteNumber) const
 
 quint8 LocalTrackViewStandalone::getMidiNoteNumber(const QString &midiNote) const
 {
-    //midi note numbers: http://www.midimountain.com/midi/midi_note_numbers.html
+    // midi note numbers: http://www.midimountain.com/midi/midi_note_numbers.html
 
     if (midiNote.length() < 2)
         return -1;
@@ -412,7 +419,7 @@ quint8 LocalTrackViewStandalone::getMidiNoteNumber(const QString &midiNote) cons
      default: noteNumber = 0;
          break;
      }
-     int octave = midiNote.at( (midiNote.length() > 2) ? 2 : 1).toLatin1() - 48; //ascii to int
+     int octave = midiNote.at( (midiNote.length() > 2) ? 2 : 1).toLatin1() - 48; // ascii to int
 
      noteNumber += (octave * 12);
 
@@ -431,12 +438,12 @@ void LocalTrackViewStandalone::onMidiToolsDialogClosed()
     qCDebug(jtGUI) << "MidiToolsDialog pointer cleared!";
 }
 
-void LocalTrackViewStandalone::addPlugin(Audio::Plugin *plugin, quint32 slotIndex, bool bypassed)
+void LocalTrackViewStandalone::addPlugin(audio::Plugin *plugin, quint32 slotIndex, bool bypassed)
 {
     if (fxPanel) {
         plugin->setBypass(bypassed);
         fxPanel->addPlugin(plugin, slotIndex);
-        refreshInputSelectionName();// refresh input type combo box, if the added plugins is a virtual instrument Jamtaba will try auto change the input type to midi
+        refreshInputSelectionName(); // refresh input type combo box, if the added plugins is a virtual instrument Jamtaba will try auto change the input type to midi
         update();
     }
 }
@@ -446,11 +453,11 @@ qint32 LocalTrackViewStandalone::getPluginFreeSlotIndex() const
     return fxPanel->getPluginFreeSlotIndex();
 }
 
-QList<const Audio::Plugin *> LocalTrackViewStandalone::getInsertedPlugins() const
+QList<const audio::Plugin *> LocalTrackViewStandalone::getInsertedPlugins() const
 {
-    QList<const Audio::Plugin *> plugins;
-    if (fxPanel) {// can be nullptr in vst plugin
-        foreach (FxPanelItem *item, fxPanel->getItems()) {
+    QList<const audio::Plugin *> plugins;
+    if (fxPanel) { // can be nullptr in vst plugin
+        for (auto item : fxPanel->getItems()) {
             if (item->containPlugin())
                 plugins.append(item->getAudioPlugin());
         }
@@ -458,7 +465,6 @@ QList<const Audio::Plugin *> LocalTrackViewStandalone::getInsertedPlugins() cons
     return plugins;
 }
 
-// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 FxPanel *LocalTrackViewStandalone::createFxPanel()
 {
     return new FxPanel(this, controller);
@@ -473,7 +479,7 @@ void LocalTrackViewStandalone::setActivatedStatus(bool unlighted)
         style()->polish(fxPanel);
 
         QList<FxPanelItem *> items = fxPanel->getItems();
-        foreach (FxPanelItem *item, items) {
+        for (FxPanelItem *item : items) {
             style()->unpolish(item);
             style()->polish(item);
         }
@@ -503,17 +509,18 @@ void LocalTrackViewStandalone::setPeakMetersOnlyMode(bool peakMetersOnly)
 void LocalTrackViewStandalone::setupMetersLayout()
 {
     LocalTrackView::setupMetersLayout();
-    if (midiPeakMeter)
-        metersLayout->insertWidget(1, midiPeakMeter);
+    if (midiPeakMeter) {
+        midiPeakMeter->setVisible(inputNode->isMidi() || inputNode->isRoutingMidiInput() || inputNode->isReceivingRoutedMidiInput());
+    }
 }
 
 QMenu *LocalTrackViewStandalone::createMonoInputsMenu(QMenu *parent)
 {
-    QMenu *monoInputsMenu = new QMenu(tr("Mono"), parent);
-    monoInputsMenu->setIcon(QIcon(MONO_ICON));
-    Audio::AudioDriver *audioDriver = controller->getAudioDriver();
+    auto monoInputsMenu = new QMenu(tr("Mono"), parent);
+    monoInputsMenu->setIcon(QIcon(IconFactory::createMonoInputIcon(tintColor)));
+    auto audioDriver = controller->getAudioDriver();
     int globalInputs = audioDriver->getInputsCount();
-    QString deviceName(audioDriver->getAudioInputDeviceName(audioDriver->getAudioDeviceIndex()));
+    QString deviceName(audioDriver->getAudioInputDeviceName(audioDriver->getAudioInputDeviceIndex()));
 
     for (int i = 0; i < globalInputs; ++i) {
         int index = audioDriver->getFirstSelectedInput() + i;
@@ -536,7 +543,8 @@ void LocalTrackViewStandalone::showInputSelectionMenu()
     menu.addMenu(createMonoInputsMenu(&menu));
     menu.addMenu(createStereoInputsMenu(&menu));
     menu.addMenu(createMidiInputsMenu(&menu));
-    QAction *noInputAction = menu.addAction(QIcon(NO_INPUT_ICON), getNoInputText());
+    auto icon = QIcon(IconFactory::createNoInputIcon(tintColor));
+    QAction *noInputAction = menu.addAction(icon, getNoInputText());
     QObject::connect(noInputAction, SIGNAL(triggered()), this, SLOT(setToNoInput()));
 
     menu.move(mapToGlobal(inputSelectionButton->parentWidget()->pos()));
@@ -550,22 +558,22 @@ QString LocalTrackViewStandalone::getNoInputText()
 
 QMenu *LocalTrackViewStandalone::createStereoInputsMenu(QMenu *parent)
 {
-    QMenu *stereoInputsMenu = new QMenu(tr("Stereo"), parent);
-    stereoInputsMenu->setIcon(QIcon(STEREO_ICON));
-    Audio::AudioDriver *audioDriver = controller->getAudioDriver();
+    auto stereoInputsMenu = new QMenu(tr("Stereo"), parent);
+    stereoInputsMenu->setIcon(QIcon(IconFactory::createStereoInputIcon(tintColor)));
+    auto audioDriver = controller->getAudioDriver();
     int globalInputs = audioDriver->getInputsCount();
-    QString deviceName(audioDriver->getAudioInputDeviceName(audioDriver->getAudioDeviceIndex()));
+    QString deviceName(audioDriver->getAudioInputDeviceName(audioDriver->getAudioInputDeviceIndex()));
     for (int i = 0; i < globalInputs; i += 2) {
-        if (i + 1 < globalInputs) {// we can make a channel pair using (i) and (i+1)?
+        if (i + 1 < globalInputs) { // we can make a channel pair using (i) and (i+1)?
             QString firstName = getInputChannelNameOnly(i);
             QString indexes = QString::number(i+1) + " + " + QString::number(i+2);
             QString inputName = firstName + " [" + indexes +  "]  (" + deviceName + ")";
             QAction *action = stereoInputsMenu->addAction(inputName);
-            action->setData(i);// use the first input pair index as action data
+            action->setData(i); // use the first input pair index as action data
             action->setIcon(stereoInputsMenu->icon());
         }
     }
-    stereoInputsMenu->setEnabled(globalInputs/2 >= 1);// at least one pair
+    stereoInputsMenu->setEnabled(globalInputs/2 >= 1); // at least one pair
     if (!stereoInputsMenu->isEnabled()) {
         QString msg = tr("%1  (not enough available inputs to make stereo)").arg(stereoInputsMenu->title());
         stereoInputsMenu->setTitle(msg);
@@ -576,9 +584,9 @@ QMenu *LocalTrackViewStandalone::createStereoInputsMenu(QMenu *parent)
 
 QString LocalTrackViewStandalone::getInputChannelNameOnly(int inputIndex)
 {
-    Audio::AudioDriver *audioDriver = controller->getAudioDriver();
+    auto audioDriver = controller->getAudioDriver();
     QString fullName(audioDriver->getInputChannelName(inputIndex));
-    if (fullName.isEmpty())// mac return empy channel names if user don't rename the channels
+    if (fullName.isEmpty()) // mac return empy channel names if user don't rename the channels
         fullName = audioDriver->getAudioInputDeviceName();
     int spaceIndex = fullName.lastIndexOf(" ");
     if (spaceIndex > 0)
@@ -588,30 +596,30 @@ QString LocalTrackViewStandalone::getInputChannelNameOnly(int inputIndex)
 
 QMenu *LocalTrackViewStandalone::createMidiInputsMenu(QMenu *parent)
 {
-    QMenu *midiInputsMenu = new QMenu(tr("MIDI"), parent);
-    midiInputsMenu->setIcon(QIcon(MIDI_ICON));
-    Midi::MidiDriver *midiDriver = controller->getMidiDriver();
+    auto midiInputsMenu = new QMenu(tr("MIDI"), parent);
+    midiInputsMenu->setIcon(QIcon(IconFactory::createMidiIcon(tintColor)));
+    auto midiDriver = controller->getMidiDriver();
     int totalMidiDevices = midiDriver->getMaxInputDevices();
     int globallyEnabledMidiDevices = 0;
     for (int d = 0; d < totalMidiDevices; ++d) {
         if (midiDriver->deviceIsGloballyEnabled(d)) {
             globallyEnabledMidiDevices++;
-            QMenu *midiChannelsMenu = new QMenu(midiInputsMenu);
-            QActionGroup *actionGroup = new QActionGroup(midiChannelsMenu);
+            auto midiChannelsMenu = new QMenu(midiInputsMenu);
+            auto actionGroup = new QActionGroup(midiChannelsMenu);
 
-            QAction *allChannelsAction = midiChannelsMenu->addAction(tr("All channels"));
-            allChannelsAction->setData(QString(QString::number(d) + ":" + QString::number(-1)));// use -1 to all channels
+            auto allChannelsAction = midiChannelsMenu->addAction(tr("All channels"));
+            allChannelsAction->setData(QString(QString::number(d) + ":" + QString::number(-1))); // use -1 to all channels
             allChannelsAction->setActionGroup(actionGroup);
             allChannelsAction->setCheckable(true);
-            Audio::LocalInputNode *inputNode = getInputNode();
+            auto inputNode = getInputNode();
             allChannelsAction->setChecked(
                 inputNode->isMidi() && inputNode->getMidiDeviceIndex() == d
                 && inputNode->isReceivingAllMidiChannels());
 
             midiChannelsMenu->addSeparator();
             for (int c = 0; c < 16; ++c) {
-                QAction *a = midiChannelsMenu->addAction(tr("Channel %1").arg(QString::number(c+1)));
-                a->setData(QString(QString::number(d) + ":" + QString::number(c)));// use device:channel_index as data
+                auto a = midiChannelsMenu->addAction(tr("Channel %1").arg(QString::number(c+1)));
+                a->setData(QString(QString::number(d) + ":" + QString::number(c))); // use device:channel_index as data
                 a->setActionGroup(actionGroup);
                 a->setCheckable(true);
                 a->setChecked(
@@ -620,9 +628,9 @@ QMenu *LocalTrackViewStandalone::createMidiInputsMenu(QMenu *parent)
             }
 
             QString deviceName = controller->getMidiDriver()->getInputDeviceName(d);
-            QAction *action = midiInputsMenu->addAction(deviceName);
+            auto action = midiInputsMenu->addAction(deviceName);
             action->setMenu(midiChannelsMenu);
-            action->setData(d);// using midi device index as action data
+            action->setData(d); // using midi device index as action data
             action->setIcon(midiInputsMenu->icon());
             QObject::connect(midiChannelsMenu, SIGNAL(triggered(QAction *)), this,
                              SLOT(setToMidi(QAction *)));
@@ -630,8 +638,7 @@ QMenu *LocalTrackViewStandalone::createMidiInputsMenu(QMenu *parent)
     }
     midiInputsMenu->setEnabled(globallyEnabledMidiDevices > 0);
     if (!midiInputsMenu->isEnabled()) {
-        midiInputsMenu->setTitle(
-            tr("%1  (no MIDI devices detected or enabled in 'Preferences' menu')").arg(midiInputsMenu->title()));
+        midiInputsMenu->setTitle(tr("%1  (no MIDI devices detected or enabled in 'Preferences' menu')").arg(midiInputsMenu->title()));
     }
     return midiInputsMenu;
 }
@@ -651,33 +658,28 @@ void LocalTrackViewStandalone::setToNoInput()
     }
 }
 
-// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-QString LocalTrackViewStandalone::getInputTypeIconFile()
+QPixmap LocalTrackViewStandalone::getInputTypePixmap()
 {
     if (inputNode->isAudio()) { // using audio as input method
         if (inputNode->isStereo())
-            return STEREO_ICON;
+            return IconFactory::createStereoInputIcon(tintColor);
         else if (inputNode->isMono())
-            return MONO_ICON;
+            return IconFactory::createMonoInputIcon(tintColor);
         else
-            return NO_INPUT_ICON; // range is empty = no audio input
+            return IconFactory::createNoInputIcon(tintColor); // range is empty = no audio input
     }
 
     if (inputNode->isMidi()) {
-        if (canUseMidiDeviceIndex(inputNode->getMidiDeviceIndex())) {
-            return MIDI_ICON;
-        } else {
-            return NO_INPUT_ICON;// midi device index invalid
-        }
+        if (canUseMidiDeviceIndex(inputNode->getMidiDeviceIndex()))
+            return IconFactory::createMidiIcon(tintColor);
     }
 
-    return NO_INPUT_ICON;
+    return IconFactory::createNoInputIcon(tintColor);
 }
 
 bool LocalTrackViewStandalone::canUseMidiDeviceIndex(int midiDeviceIndex) const
 {
-    Midi::MidiDriver *midiDriver = controller->getMidiDriver();
+    auto midiDriver = controller->getMidiDriver();
     if (midiDeviceIndex < midiDriver->getMaxInputDevices() && midiDriver->deviceIsGloballyEnabled(midiDeviceIndex))
         return true;
 
@@ -688,13 +690,12 @@ void LocalTrackViewStandalone::updateInputIcon()
 {
     // set the icon
     Q_ASSERT(inputTypeIconLabel);
-    QString iconFile = getInputTypeIconFile();
-    inputTypeIconLabel->setStyleSheet("background-image: url(" + iconFile + ");");
+    inputTypeIconLabel->setPixmap(getInputTypePixmap());
 }
 
 void LocalTrackViewStandalone::refreshInputSelectionName()
 {
-    Audio::LocalInputNode *inputTrack = controller->getInputTrack(getTrackID());
+    auto inputTrack = controller->getInputTrack(getTrackID());
 
     if (inputTrack->isMidi() && !canUseMidiDeviceIndex(inputTrack->getMidiDeviceIndex()))
         inputTrack->setToNoInput();
@@ -702,7 +703,7 @@ void LocalTrackViewStandalone::refreshInputSelectionName()
     updateInputText();
     updateInputIcon();
 
-    setMidiPeakMeterVisibility(inputNode->isMidi());
+    setMidiPeakMeterVisibility(inputNode->isMidi() || inputNode->isRoutingMidiInput() || inputNode->isReceivingRoutedMidiInput());
 
     midiToolsButton->setVisible( canShowMidiToolsButton() );
     inputTypeIconLabel->setVisible(canShowInputTypeIcon());
@@ -716,7 +717,7 @@ void LocalTrackViewStandalone::refreshInputSelectionName()
 
 QString LocalTrackViewStandalone::getAudioInputText()
 {
-    Audio::ChannelRange inputRange = inputNode->getAudioInputRange();
+    auto inputRange = inputNode->getAudioInputRange();
     if (inputNode->isStereo()) {
         int firstInputIndex = inputRange.getFirstChannel() + controller->getAudioDriver()->getFirstSelectedInput();
         QString indexes = "(" + QString::number(firstInputIndex+1) + "+" + QString::number(firstInputIndex+2) + ") ";
@@ -724,7 +725,7 @@ QString LocalTrackViewStandalone::getAudioInputText()
     }
 
     if (inputNode->isMono()) {
-        Audio::AudioDriver *audioDriver = controller->getAudioDriver();
+        auto audioDriver = controller->getAudioDriver();
         int index = inputRange.getFirstChannel() + controller->getAudioDriver()->getFirstSelectedInput();
         QString name = QString(audioDriver->getInputChannelName(index));
         QString inputType = QString(QString::number(index+1) + " - ");
@@ -742,10 +743,9 @@ QString LocalTrackViewStandalone::getAudioInputText()
 
 QString LocalTrackViewStandalone::getMidiInputText()
 {
-    Midi::MidiDriver *midiDriver = controller->getMidiDriver();
+    auto midiDriver = controller->getMidiDriver();
     int selectedDeviceIndex = inputNode->getMidiDeviceIndex();
-    if (selectedDeviceIndex < midiDriver->getMaxInputDevices()
-            && midiDriver->deviceIsGloballyEnabled(selectedDeviceIndex)) {
+    if (selectedDeviceIndex < midiDriver->getMaxInputDevices() && midiDriver->deviceIsGloballyEnabled(selectedDeviceIndex)) {
         return midiDriver->getInputDeviceName(selectedDeviceIndex);
     } // midi device index invalid
 
@@ -754,7 +754,7 @@ QString LocalTrackViewStandalone::getMidiInputText()
 
 QString LocalTrackViewStandalone::getInputText()
 {
-    if (inputNode->isAudio()) {// using audio as input method
+    if (inputNode->isAudio()) { // using audio as input method
         return getAudioInputText();
     }
 
@@ -800,7 +800,7 @@ void LocalTrackViewStandalone::setToMono(QAction *action)
     int selectedInputIndexInAudioDevice = action->data().toInt();
     controller->setInputTrackToMono(getTrackID(), selectedInputIndexInAudioDevice);
     setMidiPeakMeterVisibility(false);
-    peakMeter->setStereo(false);
+    levelSlider->setStereo(false);
 
     emit trackInputChanged();
 }
@@ -814,7 +814,7 @@ void LocalTrackViewStandalone::setToStereo(QAction *action)
     controller->setInputTrackToStereo(getTrackID(), firstInputIndexInAudioDevice);
     setMidiPeakMeterVisibility(false);
 
-    peakMeter->setStereo(true);
+    levelSlider->setStereo(true);
 
     emit trackInputChanged();
 }
@@ -824,9 +824,11 @@ void LocalTrackViewStandalone::setToMidi(QAction *action)
     QString indexes = action->data().toString();
     if (!indexes.contains(":"))
         return;
+
     QStringList indexesParts = indexes.split(":");
     if (indexesParts.size() != 2)
         return;
+
     QString midiChannelString = indexesParts.at(1);
     QString midiDeviceString = indexesParts.at(0);
     int midiChannel = midiChannelString.toInt();
@@ -834,7 +836,7 @@ void LocalTrackViewStandalone::setToMidi(QAction *action)
 
     controller->setInputTrackToMIDI(getTrackID(), midiDeviceIndex, midiChannel);
 
-    peakMeter->setStereo(true);
+    levelSlider->setStereo(true);
 
     emit trackInputChanged();
 }
@@ -843,8 +845,8 @@ bool LocalTrackViewStandalone::eventFilter(QObject *target, QEvent *event)
 {
     if (target == inputSelectionButton) {
         if (event->type() == QEvent::Resize) {
-            QResizeEvent *resizeEvent = static_cast<QResizeEvent *>(event);
-            if (resizeEvent->size().width() > resizeEvent->oldSize().width()) { //is growing?
+            auto resizeEvent = static_cast<QResizeEvent *>(event);
+            if (resizeEvent->size().width() > resizeEvent->oldSize().width()) { // is growing?
                 updateInputText();
                 return true;
             }

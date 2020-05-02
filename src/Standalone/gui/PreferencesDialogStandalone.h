@@ -1,14 +1,14 @@
 #ifndef STANDALONE_PREFERENCES_DIALOG_H
 #define STANDALONE_PREFERENCES_DIALOG_H
 
-#include "PreferencesDialog.h"
+#include "gui/PreferencesDialog.h"
 #include "ui_PreferencesDialog.h"
 
-namespace Audio {
+namespace audio {
 class AudioDriver;
 }
 
-namespace Midi {
+namespace midi {
 class MidiDriver;
 }
 
@@ -17,8 +17,8 @@ class PreferencesDialogStandalone : public PreferencesDialog
     Q_OBJECT
 
 public:
-    PreferencesDialogStandalone(QWidget *parent, bool showAudioControlPanelButton, Audio::AudioDriver *audioDriver, Midi::MidiDriver *midiDriver);
-    void initialize(PreferencesTab initialTab, const Persistence::Settings *settings, const QMap<QString, QString> &jamRecorders) override;
+    PreferencesDialogStandalone(QWidget *parent, bool showAudioControlPanelButton, audio::AudioDriver *audioDriver, midi::MidiDriver *midiDriver);
+    void initialize(PreferencesTab initialTab, const persistence::Settings *settings, const QMap<QString, QString> &jamRecorders) override;
 
 public slots:
     void accept() override;
@@ -31,8 +31,8 @@ public slots:
     void setCurrentScannedVstPlugin(const QString &pluginPath);
 
 signals:
-    void ioPreferencesChanged(QList<bool> midiInputsStatus, int selectedAudioDevice, int firstIn,
-                              int lastIn, int firstOut, int lastOut);
+    void ioPreferencesChanged(QList<bool> midiInputsStatus, QString selectedInputAudioDevice, QString selectedOutputAudioDevice,
+                              int firstIn, int lastIn, int firstOut, int lastOut);
 
     void sampleRateChanged(int newSampleRate);
     void bufferSizeChanged(int newBufferSize);
@@ -57,7 +57,8 @@ private slots:
     void populateLastInputCombo();
     void populateLastOutputCombo();
 
-    void changeAudioDevice(int index);
+    void changeAudioInputDevice(int index);
+    void changeAudioOutputDevice(int index);
 
     void notifySampleRateChanged();
     void notifyBufferSizeChanged();
@@ -71,8 +72,8 @@ protected:
 
 private:
 
-    Audio::AudioDriver *audioDriver;
-    Midi::MidiDriver *midiDriver;
+    audio::AudioDriver *audioDriver;
+    midi::MidiDriver *midiDriver;
 
     void selectAudioTab();
     void selectMidiTab();

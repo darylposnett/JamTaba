@@ -6,31 +6,33 @@
 #include <QMap>
 #include <QLibrary>
 
+#include <memory>
+#include <vector>
+
 #define MAX_MIDI_EVENTS 64 // in my tests playing piano I can genenerate just 3 messages per block (256 samples) at maximum
 
 struct VstEvents;
 
-namespace Vst {
+namespace vst {
 
 class VstHost;
 
-// Plugin's entry point
-typedef AEffect *(*vstPluginFuncPtr)(audioMasterCallback host);
+typedef AEffect *(*vstPluginFuncPtr)(audioMasterCallback host); // Plugin's entry point
 
-class VstPlugin : public Audio::Plugin
+class VstPlugin : public audio::Plugin
 {
 public:
-    explicit VstPlugin(Vst::VstHost *host, const QString &pluginPath);
+    explicit VstPlugin(vst::VstHost *host, const QString &pluginPath);
     ~VstPlugin();
 
-    void process(const Audio::SamplesBuffer &vstInputArray, Audio::SamplesBuffer &outBuffer, std::vector<Midi::MidiMessage> &midiBuffer) override;
+    void process(const audio::SamplesBuffer &vstInputArray, audio::SamplesBuffer &outBuffer, std::vector<midi::MidiMessage> &midiBuffer) override;
     void openEditor(const QPoint &centerOfScreen) override;
 
     void closeEditor() override;
 
     bool load(const QString &path);
 
-    inline QString getPath() const
+    inline QString getPath() const override
     {
         return path;
     }
@@ -39,13 +41,13 @@ public:
 
     void restoreFromSerializedData(const QByteArray &dataToRestore) override;
 
-    void start();
+    void start() override;
 
-    void updateGui();
+    void updateGui() override;
 
-    void setSampleRate(int newSampleRate);
+    void setSampleRate(int newSampleRate) override;
 
-    void setBypass(bool state);
+    void setBypass(bool state) override;
 
     static QDialog *getPluginEditorWindow(const QString &pluginName);
 
@@ -57,18 +59,18 @@ public:
 
 protected:
     void unload();
-    void resume();
-    void suspend();
+    void resume() override;
+    void suspend() override;
 
 private:
     bool initPlugin();
 
     AEffect *effect;
 
-    Audio::SamplesBuffer *internalOutputBuffer;
-    Audio::SamplesBuffer *internalInputBuffer;
+    std::unique_ptr<audio::SamplesBuffer> internalOutputBuffer;
+    std::unique_ptr<audio::SamplesBuffer> internalInputBuffer;
 
-    Vst::VstHost *host;
+    vst::VstHost *host;
 
     bool wantMidi;
 
@@ -79,11 +81,7 @@ private:
 
     bool loaded;
 
-    float **vstOutputArray;
-    float **vstInputArray;
-
-    // VstEvents* vstEvents;
-    void fillVstEventsList(const std::vector<Midi::MidiMessage> &midiBuffer);
+    void fillVstEventsList(const std::vector<midi::MidiMessage> &midiBuffer);
 
     template<int N>
     struct VSTEventBlock

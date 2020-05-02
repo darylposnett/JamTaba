@@ -6,16 +6,18 @@
 
 #include <QDateTime>
 
-using namespace Audio;
+using audio::LocalInputNode;
+using audio::Looper;
+using audio::SamplesBuffer;
 
-LocalInputNode::MidiInput::MidiInput()
-    : lastMidiActivity(0),
-      channel(-1),
-      device(-1),
-      lowerNote(0),
-      higherNote(127),
-      transpose(0),
-      learning(false)
+LocalInputNode::MidiInput::MidiInput() :
+    device(-1),
+    channel(-1),
+    lastMidiActivity(0),
+    lowerNote(0),
+    higherNote(127),
+    transpose(0),
+    learning(false)
 {
     //
 }
@@ -46,7 +48,7 @@ bool LocalInputNode::MidiInput::isReceivingAllMidiChannels() const
     return channel < 0 || channel > 16;
 }
 
-void LocalInputNode::MidiInput::updateActivity(const Midi::MidiMessage &message)
+void LocalInputNode::MidiInput::updateActivity(const midi::MidiMessage &message)
 {
     if (message.isNoteOn() || message.isControl()) {
         quint8 activityValue = message.getData2();
@@ -62,7 +64,7 @@ void LocalInputNode::MidiInput::setTranspose(quint8 newTranspose)
     }
 }
 
-bool LocalInputNode::MidiInput::accept(const Midi::MidiMessage &message) const
+bool LocalInputNode::MidiInput::accept(const midi::MidiMessage &message) const
 {
     bool canAcceptDevice = message.getSourceDeviceIndex() == device;
     bool canAcceptChannel = isReceivingAllMidiChannels() || message.getChannel() == channel;
@@ -78,12 +80,12 @@ bool LocalInputNode::MidiInput::accept(const Midi::MidiMessage &message) const
 
 // ---------------------------------------------------------------------
 
-LocalInputNode::LocalInputNode(Controller::MainController *controller, int parentChannelIndex, bool isMono) :
+LocalInputNode::LocalInputNode(controller::MainController *controller, int parentChannelIndex, bool isMono) :
     channelGroupIndex(parentChannelIndex),
-    mainController(controller),
     stereoInverted(false),
     receivingRoutedMidiInput(false),
     routingMidiInput(false),
+    mainController(controller),
     looper(LocalInputNode::createLooper(controller))
 {
     Q_UNUSED(isMono)
@@ -95,7 +97,7 @@ LocalInputNode::~LocalInputNode()
     delete looper;
 }
 
-Looper *LocalInputNode::createLooper(Controller::MainController *controller)
+Looper *LocalInputNode::createLooper(controller::MainController *controller)
 {
     quint8 preferrredMode = controller->getLooperPreferedMode();
     quint8 preferredLayersCount = controller->getLooperPreferedLayersCount();
@@ -106,7 +108,7 @@ Looper *LocalInputNode::createLooper(Controller::MainController *controller)
     if (preferredLayersCount > MAX_LOOP_LAYERS)
         preferredLayersCount = MAX_LOOP_LAYERS;
 
-    return new Audio::Looper(static_cast<Looper::Mode>(preferrredMode), preferredLayersCount);
+    return new audio::Looper(static_cast<Looper::Mode>(preferrredMode), preferredLayersCount);
 }
 
 void LocalInputNode::stopLooper()
@@ -136,7 +138,7 @@ bool LocalInputNode::isNoInput() const
 
 bool LocalInputNode::isMidi() const
 {
-    return inputMode == MIDI;// && midiDeviceIndex >= 0;
+    return inputMode == MIDI;
 }
 
 bool LocalInputNode::isAudio() const
@@ -217,16 +219,17 @@ bool LocalInputNode::isReceivingAllMidiChannels() const
 {
     if (inputMode == MIDI)
         return midiInput.isReceivingAllMidiChannels();
+
     return false;
 }
 
 void LocalInputNode::processReplacing(const SamplesBuffer &in, SamplesBuffer &out,
-                                           int sampleRate, std::vector<Midi::MidiMessage> &midiBuffer)
+                                           int sampleRate, std::vector<midi::MidiMessage> &midiBuffer)
 {
     Q_UNUSED(sampleRate);
 
     /**
-    *      The input buffer (in) is a multichannel buffer. So, this buffer contains
+    *   The input buffer (in) is a multichannel buffer. So, this buffer contains
     * all channels grabbed from soundcard inputs. For example, if the user selected a range of 4
     * input channels in audio preferences this buffer will contain 4 channels.
     *
@@ -235,14 +238,14 @@ void LocalInputNode::processReplacing(const SamplesBuffer &in, SamplesBuffer &ou
     *
     */
 
-    std::vector<Midi::MidiMessage> filteredMidiBuffer(midiBuffer.size());
+    std::vector<midi::MidiMessage> filteredMidiBuffer(midiBuffer.size());
     internalInputBuffer.setFrameLenght(out.getFrameLenght());
     internalOutputBuffer.setFrameLenght(out.getFrameLenght());
     internalInputBuffer.zero();
     internalOutputBuffer.zero();
 
     if (!isNoInput()) {
-        if (isAudio()) {// using audio input
+        if (isAudio()) { // using audio input
             if (audioInputRange.isEmpty())
                 return;
 
@@ -254,8 +257,8 @@ void LocalInputNode::processReplacing(const SamplesBuffer &in, SamplesBuffer &ou
     }
 
     if (receivingRoutedMidiInput && !midiBuffer.empty()) { // vocoders, for example, can receive midi input from second subchannel
-        quint8 subchannelIndex = 1;// second subchannel
-        LocalInputNode *secondSubchannel = mainController->getInputTrackInGroup(channelGroupIndex, subchannelIndex);
+        quint8 subchannelIndex = 1; // second subchannel
+        auto secondSubchannel = mainController->getInputTrackInGroup(channelGroupIndex, subchannelIndex);
         if (secondSubchannel && secondSubchannel->isMidi()) {
             secondSubchannel->processIncommingMidi(midiBuffer, filteredMidiBuffer);
         }
@@ -299,11 +302,11 @@ void LocalInputNode::setReceivingRoutedMidiInput(bool receiveRoutedMidiInput)
         routingMidiInput = false;
 }
 
-void LocalInputNode::processIncommingMidi(std::vector<Midi::MidiMessage> &inBuffer, std::vector<Midi::MidiMessage> &outBuffer)
+void LocalInputNode::processIncommingMidi(std::vector<midi::MidiMessage> &inBuffer, std::vector<midi::MidiMessage> &outBuffer)
 {
-    std::vector<Midi::MidiMessage>::iterator iterator = inBuffer.begin();
+    auto iterator = inBuffer.begin();
     while(iterator != inBuffer.end()) {
-        Midi::MidiMessage message(*iterator);
+        auto message(*iterator);
         if (canProcessMidiMessage(message)) {
             message.transpose(getTranspose());
 
@@ -326,7 +329,7 @@ qint8 LocalInputNode::getTranspose() const
         return midiInput.transpose;
     }
     else {
-        quint8 subchannelIndex = 1; //second subchannel
+        quint8 subchannelIndex = 1; // second subchannel
         LocalInputNode *secondSubchannel = mainController->getInputTrackInGroup(channelGroupIndex, subchannelIndex);
         if (secondSubchannel && secondSubchannel->isMidi()) {
             return secondSubchannel->midiInput.transpose;
@@ -371,20 +374,20 @@ void LocalInputNode::setTranspose(qint8 transpose)
     midiInput.setTranspose(transpose);
 }
 
-bool LocalInputNode::canProcessMidiMessage(const Midi::MidiMessage &message) const
+bool LocalInputNode::canProcessMidiMessage(const midi::MidiMessage &message) const
 {
     if (midiInput.isLearning()) {
         if (message.isNote() || message.isControl()) {
             quint8 midiNote = (quint8)message.getData1();
             emit midiNoteLearned(midiNote);
         }
-        return false; //when learning all messages are bypassed
+        return false; // when learning all messages are bypassed
     }
 
     return midiInput.accept(message);
 }
 
-std::vector<Midi::MidiMessage> LocalInputNode::pullMidiMessagesGeneratedByPlugins() const
+std::vector<midi::MidiMessage> LocalInputNode::pullMidiMessagesGeneratedByPlugins() const
 {
     return mainController->pullMidiMessagesFromPlugins();
 }
@@ -398,7 +401,7 @@ void LocalInputNode::stopMidiNoteLearn()
 {
     midiInput.learning = false;
 }
-// ++++++++++++=
+
 void LocalInputNode::reset()
 {
     AudioNode::reset();

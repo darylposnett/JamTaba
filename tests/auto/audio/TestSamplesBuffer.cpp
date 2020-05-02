@@ -4,7 +4,29 @@
 #include "audio/core/SamplesBuffer.h"
 #include <QTest>
 
-using namespace Audio;
+using namespace audio;
+
+void TestSamplesBuffer::copy()
+{
+    QFETCH(QString, samples); //coma separated sample values
+
+    auto array = createBuffer(samples);
+    checkExpectedValues(samples, array);
+
+    SamplesBuffer copy(1);
+
+    copy = array;
+    checkExpectedValues(samples, copy);
+
+}
+
+void TestSamplesBuffer::copy_data()
+{
+    QTest::addColumn<QString>("samples");
+
+    QTest::newRow("1 2 3") << "1,2,3";
+
+}
 
 SamplesBuffer TestSamplesBuffer::createBuffer(QString comaSeparatedValues)
 {

@@ -8,7 +8,8 @@
     qt load the platform plugin from a external dll and I have an error about loading the windows platform DLL.
  */
 #include <QtPlugin>
-Q_IMPORT_PLUGIN(QWindowsIntegrationPlugin);
+Q_IMPORT_PLUGIN(QWindowsIntegrationPlugin)
+Q_IMPORT_PLUGIN(DSServicePlugin) // necessary to use QCamera inside VST Plugin
 
 extern AudioEffect *createEffectInstance(audioMasterCallback audioMaster);
 
@@ -48,6 +49,7 @@ BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason, LPVOID /*lpvReserved*/)
     if (dwReason == DLL_PROCESS_ATTACH) {
         QApplication::setApplicationName("Jamtaba 2");
         QApplication::setApplicationVersion(APP_VERSION);
+        QGuiApplication::setAttribute(Qt::AA_EnableHighDpiScaling); // fixing issue https://github.com/elieserdejesus/JamTaba/issues/1216
 
         // start the configurator
         Configurator *configurator = Configurator::getInstance();
@@ -55,7 +57,6 @@ BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason, LPVOID /*lpvReserved*/)
             qCWarning(jtConfigurator) << "JTBConfig->setUp() FAILED !";
 
         ownApplication = QMfcApp::pluginInstance(hInst);
-
     }
     if (dwReason == DLL_PROCESS_DETACH && ownApplication)
         delete qApp;

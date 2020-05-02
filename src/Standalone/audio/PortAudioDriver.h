@@ -4,13 +4,17 @@
 #include "audio/core/AudioDriver.h"
 #include "portaudio.h"
 
-namespace Audio {
+namespace audio {
+
 class PortAudioDriver : public AudioDriver
 {
+
 public:
-    PortAudioDriver(Controller::MainController *mainController, int audioDeviceIndex,
+    PortAudioDriver(controller::MainController *mainController,
+                    QString audioInputDevice, QString audioOutputDevice,
                     int firstInputIndex, int lastInputIndex, int firstOutputIndex,
                     int lastOutputIndex, int sampleRate, int bufferSize);
+
     virtual ~PortAudioDriver();
 
     bool start() override;
@@ -26,14 +30,15 @@ public:
     QString getInputChannelName(unsigned const int index) const override;
     QString getOutputChannelName(unsigned const int index) const override;
 
-    QString getAudioInputDeviceName(int index) const override;
-    QString getAudioOutputDeviceName(int index) const override;
-    QString getAudioInputDeviceName() const override;
-    QString getAudioOutputDeviceName() const override;
+    QString getAudioInputDeviceName(int index = CurrentAudioDeviceSelection) const override;
+    QString getAudioOutputDeviceName(int index = CurrentAudioDeviceSelection) const override;
+    QString getAudioDeviceInfo(int index, unsigned& nIn, unsigned& nOut) const override;
 
-    int getAudioDeviceIndex() const;
+    int getAudioInputDeviceIndex() const override;
+    int getAudioOutputDeviceIndex() const override;
 
-    void setAudioDeviceIndex(int index) override;
+    void setAudioInputDeviceIndex(int index) override;
+    void setAudioOutputDeviceIndex(int index) override;
 
     int getDevicesCount() const override;
 
@@ -47,6 +52,9 @@ public:
                                  unsigned long framesPerBuffer,
                                  const PaStreamCallbackTimeInfo *timeInfo,
                                  PaStreamCallbackFlags statusFlags, void *userData);
+
+protected:
+    int getDeviceIndexByName(const QString &deviceName) const;
 
 private:
     bool initPortAudio(int sampleRate, int bufferSize);
@@ -69,6 +77,7 @@ private:
     const bool useSystemDefaultDevices;
 
 };
-}
+
+} // namespace
 
 #endif

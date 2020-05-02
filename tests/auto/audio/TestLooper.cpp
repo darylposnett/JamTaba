@@ -7,7 +7,7 @@
 
 #include "looper/Looper.h"
 
-using namespace Audio;
+using namespace audio;
 
 void TestLooper::monitoringWhenPlayLockedAndHearAllAreChecked() // testing second problem described in #823
 {
@@ -778,7 +778,7 @@ void TestLooper::firstUnlockedLayer_data()
 void TestLooper::multiBufferTest()
 {
 
-    Audio::Looper looper;
+    audio::Looper looper;
     looper.setLayers(1, true);
 
     looper.toggleRecording();
@@ -790,10 +790,12 @@ void TestLooper::multiBufferTest()
 
     looper.setLayerPan(0, -1); // 100% left to not apply pan law in expected values
     looper.addBuffer(createBuffer("1,2,3"));
-    looper.mixToBuffer(SamplesBuffer(1, 3));
+    auto outBuffer = SamplesBuffer(1, 3);
+    looper.mixToBuffer(outBuffer);
 
     looper.addBuffer(createBuffer("4,5,6"));
-    looper.mixToBuffer(SamplesBuffer(1, 3));
+    outBuffer = SamplesBuffer(1, 3);
+    looper.mixToBuffer(outBuffer);
 
     SamplesBuffer out(1, 3);
     looper.startNewCycle(cycleLenghtInSamples);

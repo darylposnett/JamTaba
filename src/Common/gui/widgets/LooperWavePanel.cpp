@@ -4,8 +4,8 @@
 #include <QKeyEvent>
 #include <QMimeData>
 
-LooperWavePanel::LooperWavePanel(Audio::Looper *looper, quint8 layerIndex)
-    : beatsPerInterval(16),
+LooperWavePanel::LooperWavePanel(audio::Looper *looper, quint8 layerIndex) :
+      beatsPerInterval(16),
       lastMaxPeak(0),
       accumulatedSamples(0),
       samplesPerPixel(0),
@@ -30,7 +30,7 @@ LooperWavePanel::LooperWavePanel(Audio::Looper *looper, quint8 layerIndex)
    const qreal discardIconHeight = miniLockIconHeight * 0.6;
    discardIcon = createDiscardIcon(discardIconTopMargin, rightMargin, discardIconHeight);
 
-   connect(looper, &Audio::Looper::layerChanged, this, &LooperWavePanel::updateMiniLockIconPainterPath);
+   connect(looper, &audio::Looper::layerChanged, this, &LooperWavePanel::updateMiniLockIconPainterPath);
 
    setMouseTracking(true);
 
@@ -55,7 +55,7 @@ bool LooperWavePanel::isAudioFile(const QUrl &url)
 void LooperWavePanel::dragEnterEvent(QDragEnterEvent *event)
 {
     if (event->mimeData()->hasUrls()) {
-        for(auto url : event->mimeData()->urls()) {
+        for (auto url : event->mimeData()->urls()) {
             if (!looper->layerIsLocked(layerID) && LooperWavePanel::isAudioFile(url)) {
                 event->acceptProposedAction();
                 break;
@@ -150,7 +150,7 @@ bool LooperWavePanel::canUseHighlightPainting() const
     const bool drawingCurrentLayer = looper->getCurrentLayerIndex() == layerID;
 
     if (looper->isPlaying() || looper->isRecording()) {
-        return drawingCurrentLayer || looper->getMode() == Audio::Looper::AllLayers;
+        return drawingCurrentLayer || looper->getMode() == audio::Looper::AllLayers;
     }
     else if (looper->isStopped()) {
         return drawingCurrentLayer;
@@ -188,7 +188,7 @@ void LooperWavePanel::paintEvent(QPaintEvent *ev)
     const bool useHighlightPainting = canUseHighlightPainting();
 
     static const QColor redColor(255, 0, 0, 30);
-    static const QColor transparentColor(0, 0, 0, 80);
+    const QColor transparentColor(peaksColor.red(), peaksColor.green(), peaksColor.blue(), 80);
 
     QColor previousPeakColor(peaksColor);
     if (!useHighlightPainting) // not-current layers are painted with a transparent black color

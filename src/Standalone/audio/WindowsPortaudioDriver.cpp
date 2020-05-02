@@ -2,18 +2,23 @@
 #include "pa_asio.h"
 #include "log/Logging.h"
 
-namespace Audio{
+namespace audio {
 
-PortAudioDriver::PortAudioDriver(Controller::MainController* mainController, int deviceIndex, int firstInputIndex, int lastInputIndex, int firstOutputIndex, int lastOutputIndex, int sampleRate, int bufferSize )
-    :AudioDriver(mainController),
-      useSystemDefaultDevices(false)
+PortAudioDriver::PortAudioDriver(controller::MainController* mainController, QString audioInputDevice, QString audioOutputDevice, int firstInputIndex, int lastInputIndex, int firstOutputIndex, int lastOutputIndex, int sampleRate, int bufferSize ) :
+    AudioDriver(mainController),
+    useSystemDefaultDevices(false)
 {
-    globalInputRange = ChannelRange(firstInputIndex, (lastInputIndex - firstInputIndex) + 1);
-    globalOutputRange = ChannelRange(firstOutputIndex, (lastOutputIndex - firstOutputIndex) + 1);
-    audioDeviceIndex = deviceIndex;
-    if(!initPortAudio(sampleRate, bufferSize)){
-        audioDeviceIndex = paNoDevice;
+    auto portAudioInitialized = initPortAudio(sampleRate, bufferSize);
+    if (portAudioInitialized) {
+        globalInputRange = ChannelRange(firstInputIndex, (lastInputIndex - firstInputIndex) + 1);
+        globalOutputRange = ChannelRange(firstOutputIndex, (lastOutputIndex - firstOutputIndex) + 1);
+        audioInputDeviceIndex = getDeviceIndexByName(audioInputDevice);
+        audioOutputDeviceIndex = UseSingleAudioIODevice ? audioInputDeviceIndex :  getDeviceIndexByName(audioOutputDevice);
     }
+    else {
+        audioInputDeviceIndex = audioOutputDeviceIndex = paNoDevice;
+    }
+
 }
 
 void PortAudioDriver::configureHostSpecificInputParameters(PaStreamParameters& inputParams){
@@ -87,7 +92,7 @@ QString PortAudioDriver::getInputChannelName(const unsigned int index) const{
     */
 
     const char *channelName = nullptr;
-    PaAsio_GetInputChannelName(audioDeviceIndex, index, &channelName);
+    PaAsio_GetInputChannelName(audioInputDeviceIndex, index, &channelName);
     if(channelName){
         return QString(channelName);
     }
@@ -97,7 +102,7 @@ QString PortAudioDriver::getInputChannelName(const unsigned int index) const{
 QString PortAudioDriver::getOutputChannelName(const unsigned int index) const
 {
     const char *channelName = nullptr;
-    PaAsio_GetOutputChannelName(audioDeviceIndex, index, &channelName);
+    PaAsio_GetOutputChannelName(audioOutputDeviceIndex, index, &channelName);
     if(channelName){
         return QString(channelName);
     }
@@ -109,8 +114,8 @@ bool PortAudioDriver::hasControlPanel() const{
 }
 
 void PortAudioDriver::openControlPanel(void* mainWindowHandle){
-    if(audioDeviceIndex != paNoDevice){
-        PaAsio_ShowControlPanel(audioDeviceIndex, mainWindowHandle);
+    if(audioOutputDeviceIndex != paNoDevice){
+        PaAsio_ShowControlPanel(audioOutputDeviceIndex, mainWindowHandle);
     }
 }
 

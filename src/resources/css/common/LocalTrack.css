@@ -102,21 +102,32 @@ LocalTrackView #buttonLooper
     /* background-image: url(':/images/loop.png'); IMPORTANT - this image need be setted programatically */
     background-repeat: none;
     background-position: center center;
-    padding-left: 0px;
-    padding-right: 0px;
-    padding-bottom: 1px;
-    padding-top: 1px;
+
+}
+
+LocalTrackGroupView InstrumentsButton
+{
+    margin-left: 14px; /* little hack to centralize the instrument icon in local tracks */
 }
 
  /* The transmiting (xmit) button.
  ----------------------------------*/
-#xmitButton
+#xmitButton,
+#voiceChatButton
 {
     padding-left: 0px; /* using ZERO padding in left and right to fix #387 */
     padding-right: 0px;
 }
 
-#xmitButton:!checked                            /* default state (not checked) is 'not transmiting */
+#voiceChatButton
+{
+   max-height: 12px;
+   max-width: 20px;
+}
+
+#xmitButton:!checked,                            /* default state (not checked) is 'not transmiting */
+#voiceChatButton:!checked,
+TrackGroupView[unlighted="true"] #voiceChatButton:checked[blinking="true"]
 {
     border-width: 1px;
     font-size: 11px;
@@ -129,12 +140,22 @@ LocalTrackView #buttonLooper
     border-style: outset;
 }
 
-#xmitButton:checked                             /* when the button is checked we are 'Transmiting' */
+#xmitButton:checked,                             /* when the button is checked we are 'Transmiting' */
+#voiceChatButton:checked
 {
     border-style: inset;
     color: rgb(0, 40, 0);
 }
 
+#xmitButton:!checked[blinking="true"],
+#voiceChatButton:checked[blinking="true"]
+{
+    background-color: orange;
+    border-color: #B57200;
+    border-style: solid;
+    border-width: 1px;
+    color: white;
+}
 
 
 /* LocalTrackGroup (used as container to group tracks/subchannels)
@@ -159,8 +180,7 @@ LocalTrackGroupView  #toolButton                /* The wheel/gear button used to
     border: none;
     padding: 0px;
     margin: 0px;
-    width: 14px;
-    height: 14px;
+    max-width: 14px;
 }
 
 LocalTrackGroupView   #toolButton:hover

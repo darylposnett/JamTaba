@@ -6,12 +6,14 @@
 
 class SamplesBufferResampler
 {
+
 public:
     SamplesBufferResampler();
     ~SamplesBufferResampler();
-    const Audio::SamplesBuffer &resample(const Audio::SamplesBuffer &in, int desiredOutLenght);
+    const audio::SamplesBuffer &resample(const audio::SamplesBuffer &in, int desiredOutLenght);
+
 private:
-    Audio::SamplesBuffer outBuffer;
+    audio::SamplesBuffer outBuffer;
     SimpleResampler resamplers[2];
 };
 

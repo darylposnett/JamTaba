@@ -88,10 +88,6 @@ LocalTrackView #inputPanel:hover
     background-color: rgba(0, 0, 0, 30);
 }
 
-
-
-
-
 #xmitButton
 {
     margin-top: 3px;
@@ -103,7 +99,8 @@ LocalTrackView #inputPanel:hover
     border-color: rgb(100, 100, 100);
 }
 
-#xmitButton[preparing="true"]
+#xmitButton[preparing="true"],
+#voiceChatButton:checked[blinking="true"]
 {
     background-color: rgb(255, 255, 0);
     color: black;
@@ -127,6 +124,28 @@ LocalTrackView #inputPanel:hover
     border-color: rgba(0, 0, 0, 90);
 }
 
+#voiceChatButton:!checked
+{
+    background-color: rgba(100, 100, 100, 55);
+}
+
+#voiceChatButton:hover
+{
+    background-color: rgba(160, 160, 160, 55);
+}
+
+#voiceChatButton:checked
+{
+    background-color: rgba(100, 100, 100, 80);
+    border: 1px solid rgba(100, 100, 100, 55);
+}
+
+TrackGroupView[unlighted="true"] #voiceChatButton:checked[blinking="true"]  /* Voice chat button barely blinking when not transmitting */
+{
+    background-color: rgba(100, 100, 100, 55);
+    border: 1px solid rgba(100, 100, 100, 55);
+}
+
 LocalTrackView #buttonLooper:disabled
 {
     border: none;
@@ -137,4 +156,9 @@ LocalTrackView[unlighted="true"] #buttonLooper
 {
     background-color: rgba(0, 0, 0, 30);
     border: none;
+}
+
+LocalTrackGroupView #groupNameField
+{
+    font-size: 10px;
 }

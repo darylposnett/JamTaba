@@ -19,4 +19,5 @@ Q_LOGGING_CATEGORY(jtVstPlugin,             "jt.VstPlugin")
 Q_LOGGING_CATEGORY(jtAudio,                 "jt.Audio")
 Q_LOGGING_CATEGORY(jtMidi,                  "jt.Midi")
 Q_LOGGING_CATEGORY(jtConfigurator,          "jt.Configurator")
-
+Q_LOGGING_CATEGORY(jtMetronome,             "jt.Metronome")
+Q_LOGGING_CATEGORY(jtSettings,              "jt.Settings")

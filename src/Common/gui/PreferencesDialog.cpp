@@ -4,9 +4,10 @@
 #include <QtWidgets>
 #include <QDebug>
 #include <QFileDialog>
+#include <QDateTime>
 #include "persistence/Settings.h"
 #include "MetronomeUtils.h"
-#include "audio/vorbis/VorbisEncoder.h"
+#include "audio/vorbis/Vorbis.h"
 
 PreferencesDialog::PreferencesDialog(QWidget *parent) :
     QDialog(parent),
@@ -52,32 +53,60 @@ void PreferencesDialog::refreshMetronomeControlsStyleSheet()
     style()->unpolish(ui->groupBoxCustomMetronome);
     style()->unpolish(ui->groupBoxBuiltInMetronomes);
     style()->unpolish(ui->textFieldPrimaryBeat);
-    style()->unpolish(ui->textFieldSecondaryBeat);
+    style()->unpolish(ui->textFieldOffBeat);
+    style()->unpolish(ui->textFieldAccentBeat);
     style()->unpolish(ui->browsePrimaryBeatButton);
-    style()->unpolish(ui->browseSecondaryBeatButton);
+    style()->unpolish(ui->browseOffBeatButton);
+    style()->unpolish(ui->browseAccentBeatButton);
 
     style()->polish(ui->groupBoxCustomMetronome);
     style()->polish(ui->groupBoxBuiltInMetronomes);
     style()->polish(ui->textFieldPrimaryBeat);
-    style()->polish(ui->textFieldSecondaryBeat);
+    style()->polish(ui->textFieldOffBeat);
+    style()->polish(ui->textFieldAccentBeat);
     style()->polish(ui->browsePrimaryBeatButton);
-    style()->polish(ui->browseSecondaryBeatButton);
+    style()->polish(ui->browseOffBeatButton);
+    style()->polish(ui->browseAccentBeatButton);
 }
 
-void PreferencesDialog::initialize(PreferencesTab initialTab, const Persistence::Settings *settings, const QMap<QString, QString> &jamRecorders)
+void PreferencesDialog::initialize(PreferencesTab initialTab, const persistence::Settings *settings, const QMap<QString, QString> &jamRecorders)
 {
     Q_UNUSED(initialTab);
     this->settings = settings;
     this->jamRecorders = jamRecorders;
     this->jamRecorderCheckBoxes = QMap<QCheckBox *, QString>();
+    this->jamDateFormatRadioButtons = QMap<const QRadioButton *, QString>();
 
-    foreach(const QString &jamRecorder, jamRecorders.keys()) {
+    for (const auto &jamRecorder : jamRecorders.keys()) {
         QCheckBox *myCheckBox = new QCheckBox(this);
         myCheckBox->setObjectName(jamRecorder);
         myCheckBox->setText(jamRecorders.value(jamRecorder));
         ui->layoutRecorders->addWidget(myCheckBox);
         jamRecorderCheckBoxes[myCheckBox] = jamRecorder;
     }
+
+    QDateTime now = QDateTime::currentDateTime();
+    Qt::DateFormat dateFormat;
+    QString nowString;
+    QRadioButton *myRadioButton;
+
+    dateFormat = Qt::TextDate;
+    nowString = "Jam-" + now.toString(dateFormat).replace(QRegExp("[/:]"), "-").replace(QRegExp("[ ]"), "_");
+    myRadioButton = new QRadioButton(this);
+    myRadioButton->setObjectName("rbdfTextDate");
+    myRadioButton->setText(nowString);
+    myRadioButton->setProperty("buttonGroup", "rbDateFormat");
+    ui->layoutDateFormats->addWidget(myRadioButton);
+    jamDateFormatRadioButtons[myRadioButton] = "Qt::TextDate";
+
+    dateFormat = Qt::ISODate;
+    nowString = "Jam-" + now.toString(dateFormat).replace(QRegExp("[/:]"), "-").replace(QRegExp("[ ]"), "_");
+    myRadioButton = new QRadioButton(this);
+    myRadioButton->setObjectName("rbdfISODate");
+    myRadioButton->setText(nowString);
+    myRadioButton->setProperty("buttonGroup", "rbDateFormat");
+    ui->layoutDateFormats->addWidget(myRadioButton);
+    jamDateFormatRadioButtons[myRadioButton] = "Qt::ISODate";
 
     setupSignals();
 
@@ -91,24 +120,26 @@ void PreferencesDialog::setupSignals()
     connect(ui->prefsTab, SIGNAL(currentChanged(int)), this, SLOT(selectTab(int)));
 
     connect(ui->recordingCheckBox, SIGNAL(clicked(bool)), this, SLOT(toggleRecording(bool)));
-    for (QCheckBox *myCheckBox : jamRecorderCheckBoxes.keys()) {
-        connect(myCheckBox, &QCheckBox::toggled, [=](bool newStatus) {
-            emit jamRecorderStatusChanged(jamRecorderCheckBoxes[myCheckBox], newStatus);
+    connect(ui->browseRecPathButton, SIGNAL(clicked(bool)), this, SLOT(openRecordingPathBrowser()));
+    for(const QRadioButton *rb : jamDateFormatRadioButtons.keys()) {
+        connect(rb, &QRadioButton::toggled, [=]() {
+            if (rb->isChecked()) {
+                emit jamDateFormatChanged(jamDateFormatRadioButtons[rb]);
+            }
         });
     }
-
-    connect(ui->browseRecPathButton, SIGNAL(clicked(bool)), this, SLOT(openRecordingPathBrowser()));
 
     connect(ui->groupBoxCustomMetronome, SIGNAL(toggled(bool)), this, SLOT(toggleCustomMetronomeSounds(bool)));
     connect(ui->groupBoxBuiltInMetronomes, SIGNAL(toggled(bool)), this, SLOT(toggleBuiltInMetronomeSounds(bool)));
     connect(ui->browsePrimaryBeatButton, SIGNAL(clicked(bool)), this, SLOT(openPrimaryBeatAudioFileBrowser()));
-    connect(ui->browseSecondaryBeatButton, SIGNAL(clicked(bool)), this, SLOT(openSecondaryBeatAudioFileBrowser()));
+    connect(ui->browseOffBeatButton, SIGNAL(clicked(bool)), this, SLOT(openOffBeatAudioFileBrowser()));
+    connect(ui->browseAccentBeatButton, SIGNAL(clicked(bool)), this, SLOT(openAccentBeatAudioFileBrowser()));
 
     connect(ui->comboBoxEncoderQuality, SIGNAL(activated(int)), this, SLOT(emitEncodingQualityChanged()));
 
     connect(ui->radioButtonLooperOggEncoding, &QCheckBox::toggled, this, &PreferencesDialog::looperAudioEncodingFlagChanged);
     connect(ui->lineEditLoopsFolder, &QLineEdit::textChanged, this,  &PreferencesDialog::looperFolderChanged);
-    connect(ui->loopsFolderBrowseButton, &QPushButton::clicked, [=](){
+    connect(ui->loopsFolderBrowseButton, &QPushButton::clicked, [=]() {
         QString currentLoopsFolder = ui->lineEditLoopsFolder->text();
         QFileDialog folderDialog(this, tr("Choosing loops folder ..."), currentLoopsFolder);
         folderDialog.setAcceptMode(QFileDialog::AcceptOpen);
@@ -123,7 +154,7 @@ void PreferencesDialog::setupSignals()
 
 void PreferencesDialog::toggleRecording(bool recording)
 {
-    for(QCheckBox *checkbox : jamRecorderCheckBoxes.keys())
+    for (QCheckBox *checkbox : jamRecorderCheckBoxes.keys())
         checkbox->setChecked(recording);
 
     emit multiTrackRecordingStatusChanged(recording);
@@ -132,7 +163,7 @@ void PreferencesDialog::toggleRecording(bool recording)
 void PreferencesDialog::emitEncodingQualityChanged()
 {
     QVariant currentData = ui->comboBoxEncoderQuality->currentData();
-    if (!currentData.isNull()){
+    if (!currentData.isNull()) {
         float selectedQuality = currentData.toFloat();
         emit encodingQualityChanged(selectedQuality);
     }
@@ -143,34 +174,52 @@ void PreferencesDialog::accept()
     if (ui->groupBoxBuiltInMetronomes->isChecked()) {
         emit builtInMetronomeSelected(ui->comboBuiltInMetronomes->currentText());
     }
-    else{
-        emit customMetronomeSelected(ui->textFieldPrimaryBeat->text(), ui->textFieldSecondaryBeat->text());
+    else {
+        emit customMetronomeSelected(ui->textFieldPrimaryBeat->text(), ui->textFieldOffBeat->text(), ui->textFieldAccentBeat->text());
     }
+
+    for (auto checkBox : jamRecorderCheckBoxes.keys()) {
+        QString jamMetaDataWriterID = jamRecorderCheckBoxes[checkBox];
+        emit jamRecorderStatusChanged(jamMetaDataWriterID, checkBox->isChecked());
+    }
+
+    bool rememberingBoost = ui->checkBoxRememberBoost->isChecked();
+    bool rememberingLevel = ui->checkBoxRememberLevel->isChecked();
+    bool rememberingPan = ui->checkBoxRememberPan->isChecked();
+    bool rememberingMute = ui->checkBoxRememberMute->isChecked();
+    bool rememberingLowCut = ui->checkBoxRememberLowCut->isChecked();
+    emit rememberRemoteUserSettingsChanged(rememberingBoost, rememberingLevel, rememberingPan, rememberingMute, rememberingLowCut);
+
+    bool rememberLocalChannels = ui->checkBoxRememberLocalChannels->isChecked();
+    bool rememberBottomSection = ui->checkBoxRememberBottomSection->isChecked();
+    bool rememberChatSection = ui->checkBoxRememberChatSection->isChecked();
+    emit rememberCollapsibleSectionsSettingsChanged(rememberLocalChannels, rememberBottomSection, rememberChatSection);
+
     QDialog::accept();
 }
 
 void PreferencesDialog::populateEncoderQualityComboBox()
 {
     ui->comboBoxEncoderQuality->clear();
-    ui->comboBoxEncoderQuality->addItem(tr("Low (good for slow internet connections)"), VorbisEncoder::QUALITY_LOW);
-    ui->comboBoxEncoderQuality->addItem(tr("Normal (default)"), VorbisEncoder::QUALITY_NORMAL);
-    ui->comboBoxEncoderQuality->addItem(tr("High (for good internet connections only)"), VorbisEncoder::QUALITY_HIGH);
+    ui->comboBoxEncoderQuality->addItem(tr("Low (good for slow internet connections)"), vorbis::EncoderQualityLow);
+    ui->comboBoxEncoderQuality->addItem(tr("Normal (default)"), vorbis::EncoderQualityNormal);
+    ui->comboBoxEncoderQuality->addItem(tr("High (for good internet connections only)"), vorbis::EncoderQualityHigh);
 
     bool usingCustomQuality = usingCustomEncodingQuality();
     if (usingCustomQuality)
         ui->comboBoxEncoderQuality->addItem(tr("Custom quality"));
 
     //select the correct item in combobox
-    if (!usingCustomQuality){
+    if (!usingCustomQuality) {
         float quality = settings->getEncodingQuality();
-        if (qFuzzyCompare(quality, VorbisEncoder::QUALITY_LOW))
+        if (qFuzzyCompare(quality, vorbis::EncoderQualityLow))
             ui->comboBoxEncoderQuality->setCurrentIndex(0);
-        else if (qFuzzyCompare(quality, VorbisEncoder::QUALITY_NORMAL))
+        else if (qFuzzyCompare(quality, vorbis::EncoderQualityNormal))
             ui->comboBoxEncoderQuality->setCurrentIndex(1);
-        else if (qFuzzyCompare(quality, VorbisEncoder::QUALITY_HIGH))
+        else if (qFuzzyCompare(quality, vorbis::EncoderQualityHigh))
                     ui->comboBoxEncoderQuality->setCurrentIndex(2);
     }
-    else{
+    else {
         ui->comboBoxEncoderQuality->setCurrentIndex(ui->comboBoxEncoderQuality->count() - 1);
     }
 }
@@ -179,13 +228,13 @@ bool PreferencesDialog::usingCustomEncodingQuality()
 {
     float currentQuality = settings->getEncodingQuality();
 
-    if (qFuzzyCompare(currentQuality, VorbisEncoder::QUALITY_LOW))
+    if (qFuzzyCompare(currentQuality, vorbis::EncoderQualityLow))
         return false;
 
-    if (qFuzzyCompare(currentQuality, VorbisEncoder::QUALITY_NORMAL))
+    if (qFuzzyCompare(currentQuality, vorbis::EncoderQualityNormal))
         return false;
 
-    if (qFuzzyCompare(currentQuality, VorbisEncoder::QUALITY_HIGH))
+    if (qFuzzyCompare(currentQuality, vorbis::EncoderQualityHigh))
         return false;
 
     return true;
@@ -197,6 +246,20 @@ void PreferencesDialog::populateAllTabs()
     populateMultiTrackRecordingTab();
     populateMetronomeTab();
     populateLooperTab();
+    populateRememberTab();
+}
+
+void PreferencesDialog::populateRememberTab()
+{
+    ui->checkBoxRememberBoost->setChecked(settings->isRememberingBoost());
+    ui->checkBoxRememberLevel->setChecked(settings->isRememberingLevel());
+    ui->checkBoxRememberPan->setChecked(settings->isRememberingPan());
+    ui->checkBoxRememberMute->setChecked(settings->isRememberingMute());
+    ui->checkBoxRememberLowCut->setChecked(settings->isRememberingLowCut());
+
+    ui->checkBoxRememberLocalChannels->setChecked(settings->isRememberingLocalChannels());
+    ui->checkBoxRememberBottomSection->setChecked(settings->isRememberingBottomSection());
+    ui->checkBoxRememberChatSection->setChecked(settings->isRememberingChatSection());
 }
 
 void PreferencesDialog::populateLooperTab()
@@ -216,6 +279,7 @@ void PreferencesDialog::populateLooperTab()
     quint8 comboBoxIndex = 0; // 16 bits
     if (bitDepth == 32)
         comboBoxIndex = 1;
+
     ui->comboBoxBitRate->setCurrentIndex(comboBoxIndex);
 }
 
@@ -232,16 +296,16 @@ void PreferencesDialog::populateMetronomeTab()
     ui->groupBoxCustomMetronome->setChecked(usingCustomMetronomeSounds);
     ui->groupBoxBuiltInMetronomes->setChecked(!usingCustomMetronomeSounds);
     ui->textFieldPrimaryBeat->setText(settings->getMetronomeFirstBeatFile());
-    ui->textFieldSecondaryBeat->setText(settings->getMetronomeSecondaryBeatFile());
+    ui->textFieldOffBeat->setText(settings->getMetronomeOffBeatFile());
 
-    //combo embedded metronome sounds
-    QList<QString> metronomeAliases = Audio::MetronomeUtils::getBuiltInMetronomeAliases();
+    // combo embedded metronome sounds
+    auto metronomeAliases = audio::metronomeUtils::getBuiltInMetronomeAliases();
     ui->comboBuiltInMetronomes->clear();
-    foreach (QString alias, metronomeAliases) {
+    for (QString alias : metronomeAliases) {
         ui->comboBuiltInMetronomes->addItem(alias, alias);
     }
 
-    //using built-in metronome?
+    // using built-in metronome?
     if (!settings->isUsingCustomMetronomeSounds()){
         ui->comboBuiltInMetronomes->setCurrentText(settings->getBuiltInMetronome());
     }
@@ -250,11 +314,17 @@ void PreferencesDialog::populateMetronomeTab()
 void PreferencesDialog::populateMultiTrackRecordingTab()
 {
     Q_ASSERT(settings);
-    Persistence::MultiTrackRecordingSettings recordingSettings = settings->getMultiTrackRecordingSettings();
+    auto recordingSettings = settings->getMultiTrackRecordingSettings();
     ui->recordingCheckBox->setChecked(recordingSettings.saveMultiTracksActivated);
-    foreach(QCheckBox *myCheckBox, jamRecorderCheckBoxes.keys()) {
+
+    for (auto myCheckBox : jamRecorderCheckBoxes.keys()) {
         myCheckBox->setChecked(recordingSettings.isJamRecorderActivated(jamRecorderCheckBoxes[myCheckBox]));
     }
+
+    for (const QRadioButton * myRadioButton : jamDateFormatRadioButtons.keys()) {
+        ((QRadioButton *)myRadioButton)->setChecked(QString::compare(recordingSettings.dirNameDateFormat, jamDateFormatRadioButtons[myRadioButton]) == 0);
+    }
+
     QDir recordDir(recordingSettings.recordingPath);
     ui->recordPathLineEdit->setText(recordDir.absolutePath());
 }
@@ -280,14 +350,25 @@ void PreferencesDialog::openPrimaryBeatAudioFileBrowser()
     }
 }
 
-void PreferencesDialog::openSecondaryBeatAudioFileBrowser()
+void PreferencesDialog::openOffBeatAudioFileBrowser()
 {
-    QString caption = tr("Choosing Secondary beat audio file...");
+    QString caption = tr("Choosing Off beat audio file...");
     QString filter = getAudioFilesFilter();
     QString dir = ".";
     QString filePath = QFileDialog::getOpenFileName(this, caption, dir, filter);
     if (!filePath.isNull()) {
-        ui->textFieldSecondaryBeat->setText(filePath);
+        ui->textFieldOffBeat->setText(filePath);
+    }
+}
+
+void PreferencesDialog::openAccentBeatAudioFileBrowser()
+{
+    QString caption = tr("Choosing Accent beat audio file...");
+    QString filter = getAudioFilesFilter();
+    QString dir = ".";
+    QString filePath = QFileDialog::getOpenFileName(this, caption, dir, filter);
+    if (!filePath.isNull()) {
+        ui->textFieldAccentBeat->setText(filePath);
     }
 }
 
@@ -295,6 +376,7 @@ QString PreferencesDialog::openAudioFileBrowser(const QString caption)
 {
     QString filter = tr("Audio Files") + " (*.wav, *.ogg)";
     QString dir = ".";
+
     return QFileDialog::getOpenFileName(this, caption, dir, filter);
 }
 
@@ -303,6 +385,7 @@ void PreferencesDialog::openRecordingPathBrowser()
     QFileDialog fileDialog(this, tr("Choosing recording path ..."));
     fileDialog.setAcceptMode(QFileDialog::AcceptOpen);
     fileDialog.setFileMode(QFileDialog::DirectoryOnly);
+
     if (fileDialog.exec()) {
         QDir dir = fileDialog.directory();
         QString newRecordingPath = dir.absolutePath();

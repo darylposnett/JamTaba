@@ -1,3 +1,8 @@
+NinjamTrackView #receiveLabel
+{
+    color: rgba(255, 255, 255, 70);
+}
+
 NinjamTrackView #lowCutButton:checked
 {
     background-color: qlineargradient(x1:0, y1:0, x2:0, y2:0.95, stop:0 rgb(100, 100, 100), stop:1 rgb(80, 80, 80));
@@ -35,26 +40,26 @@ NinjamTrackView[unlighted="true"] #receiveButton:hover:!checked
     border-color: rgba(0, 0, 0, 90);
 }
 
-NinjamTrackView[horizontal="true"] #panSlider
+NinjamTrackView[horizontal="true"] #levelSlider::handle:horizontal:hover
 {
-    max-width: 50px;
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:0.95,
+        stop:0 rgba(180, 180, 180, 180),
+        stop:1 rgba(120, 120, 120, 180));
+
+    border: 1px outset rgb(30, 30, 30);
 }
 
-NinjamTrackView[horizontal="true"] #buttonBoost
+NinjamTrackView[horizontal="true"][unlighted="true"] #levelSlider::handle:horizontal:hover
 {
-    padding: 1px;
-    border: 1px solid rgba(0, 0, 0, 30);
-    min-width: 12px;
+    background-color: rgb(120, 120, 120);
 }
 
-
-NinjamTrackView[horizontal="true"] QPushButton#buttonBoost:hover:checked,
 NinjamTrackView[horizontal="true"] QPushButton#lowCutButton:hover:checked,
 NinjamTrackView[horizontal="true"] QPushButton#receiveButton:checked,
 NinjamTrackView QPushButton#lowCutButton:hover:checked,
 NinjamTrackView QPushButton#receiveButton:checked
 {
-    margin-top: -1px;
+    /*margin-top: -1px;*/
     background-color: qlineargradient(x1:0, y1:0, x2:0, y2:0.95, stop:0 rgb(100, 100, 100), stop:1 rgb(80, 80, 80));
     color: rgba(0, 0, 0, 160);
     border: none;
@@ -69,20 +74,23 @@ NinjamTrackView[horizontal="true"]
 
 NinjamTrackView[unlighted="true"][horizontal="true"] #levelSlider::handle:horizontal
 {
-    border: rgb(140, 140, 140);
-    background: rgb(80, 80, 80);
+    border: rgba(140, 140, 140, 180);
+    background: rgba(80, 80, 80, 180);
 }
 
 NinjamTrackView[horizontal="true"] #levelSlider::handle:horizontal
 {
-    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:0.95, stop:0 rgb(180, 180, 180), stop:1 rgb(120, 120, 120));
-    border: 1px outset rgb(30, 30, 30);
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:0.95,
+        stop:0 rgba(180, 180, 180, 140),
+        stop:1 rgba(120, 120, 120, 140));
+
+    border: 1px outset rgba(30, 30, 30, 140);
 }
 
-/* Tool buttons: track vertical/horizontal, wide/narrow and server licence buttons
+/* Tool buttons: track vertical/horizontal/grid, wide/narrow and server licence buttons
 ------------------------------------------------------------------------------------*/
-NinjamRoomWindow QToolButton:hover,
-NinjamRoomWindow QToolButton:hover:checked,
+QToolButton:hover,
+QToolButton:hover:checked,
 #licenceButton:hover,
 #licenceButton:hover:checked
 {
@@ -90,18 +98,19 @@ NinjamRoomWindow QToolButton:hover:checked,
 }
 
 NinjamRoomWindow QToolButton:hover:!checked,
-#licenceButton:hover:!checked
+#licenceButton:hover:!checked,
+#chordsButton:hover
 {
     background-color: rgba(255, 255, 255, 40);
 }
 
-NinjamRoomWindow QToolButton,
-#licenceButton
-{
-    border: 1px solid black;
-}
-
-NinjamRoomWindow QToolButton
+#buttonVerticalLayout,
+#buttonHorizontalLayout,
+#buttonGridLayout,
+#wide,
+#narrow,
+#licenceButton,
+#chordsButton
 {
     border: 1px solid black;
     height: 20px;
@@ -110,7 +119,8 @@ NinjamRoomWindow QToolButton
 }
 
 NinjamRoomWindow QToolButton:checked,
-#licenceButton
+#licenceButton,
+#chordsButton
 {
     background-color: rgb(255, 255, 255, 60);
 }
@@ -125,7 +135,15 @@ NinjamRoomWindow QToolButton:!checked
     border: 1px solid black;
     border-right-color: none;
 }
+
 #buttonHorizontalLayout:!checked
+{
+    border: 1px solid black;
+    border-right-color: none;
+    border-left-color: none;
+}
+
+#buttonGridLayout:!checked
 {
     border: 1px solid black;
     border-left-color: none;
@@ -173,14 +191,14 @@ NinjamTrackView  #channelName               /* channel name for ninjamers XMIT O
 
 /* NinjamPanel is the widget where the ninjam controls are showed (in bottom when we are connected in a server)
 ----------------------------------------------------------------------------------------------------------------*/
-NinjamPanel #ninjamControlsPanel
+NinjamPanel
 {
     background-color: rgba(0, 0, 0, 30);
     border: 1px solid rgb(20, 20, 20);
 }
 
-NinjamPanel #soloButton,
-NinjamPanel #muteButton
+MetronomePanel #soloButton,
+MetronomePanel #muteButton
 {
     background-color: rgb(140, 140, 140);
 }
@@ -200,11 +218,12 @@ background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
     border-top-right-radius: 1px;
 }
 
-NinjamTrackGroupView                        /* ninjam track group. If a ninjamer is using 2 channels they will appear grouped */
+
+/* ninjam track group. If a ninjamer is using 2 channels they will appear grouped */
+NinjamTrackGroupView
 {
     border: 1px solid rgb(140, 140, 140);
 }
-
 
 /** The floating window showing the metronome/interval progress */
 IntervalProgressWindow
@@ -233,6 +252,11 @@ IntervalProgressWindow
     background-color: rgb(20, 20, 20);
     selection-background-color: rgb(80, 80, 80);
     selection-color: black;
+}
+
+#panelCombos QComboBox:hover
+{
+    background-color: rgb(31, 31, 31);
 }
 
 #comboBpi-topLevel
@@ -405,4 +429,17 @@ LooperWindow #muteButton:disabled
     background-color: rgba(0, 0, 0, 40);
     color: rgba(0, 0, 0, 100);
     border-color: rgba(0, 0, 0, 20);
+}
+
+InstrumentsButton:hover,
+#instrumentsMenu QToolButton:enabled:hover
+{
+    background: rgba(255, 255, 255, 80);
+    border: gray;
+}
+
+#instrumentsMenu QToolButton:enabled
+{
+    background-color: rgba(255, 255, 255, 20);
+    border: none;
 }

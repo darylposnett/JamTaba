@@ -17,7 +17,7 @@ void NinjamControllerPlugin::stopAndWaitForHostSync()
     if (!waitingForHostSync) {
         waitingForHostSync = true;
 
-        reset(true);// discard the intervals but keep the most recent
+        reset(); // discard the intervals but keep the most recent
 
         deactivateAudioNodes(); // metronome and ninjam audio nodes will not be rendered
     }
@@ -62,7 +62,7 @@ void NinjamControllerPlugin::startSynchronizedWithHost(qint32 startPosition)
     }
 }
 
-void NinjamControllerPlugin::process(const Audio::SamplesBuffer &in, Audio::SamplesBuffer &out, int sampleRate)
+void NinjamControllerPlugin::process(const audio::SamplesBuffer &in, audio::SamplesBuffer &out, int sampleRate)
 {
     if (!waitingForHostSync)
         NinjamController::process(in, out, sampleRate);

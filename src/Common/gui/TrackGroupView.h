@@ -4,8 +4,7 @@
 #include <QFrame>
 #include <QLineEdit>
 #include <QBoxLayout>
-
-#include "TextEditorModifier.h"
+#include <QGridLayout>
 
 namespace Ui {
 class TrackGroupView;
@@ -19,30 +18,24 @@ class TrackGroupView : public QFrame
     Q_OBJECT
 
 public:
-    explicit TrackGroupView(TextEditorModifier *TextEditorModifier, QWidget *parent = 0);
+    explicit TrackGroupView(QWidget *parent = 0);
     virtual ~TrackGroupView();
-    virtual void setGroupName(const QString &groupName);
-    virtual QString getGroupName() const;
 
     virtual BaseTrackView *addTrackView(long trackID);
 
     void removeTrackView(BaseTrackView *trackView);
     void removeTrackView(int index);
 
-    QSize minimumSizeHint() const;
-    QSize sizeHint() const;
+    QSize sizeHint() const override;
 
-    void updateGuiElements();
+    virtual void updateGuiElements();
 
-    inline int getTracksCount() const
-    {
-        return trackViews.size();
-    }
+    int getTracksCount() const;
 
     void setUnlightStatus(bool unlighted);
     bool isUnlighted() const;
 
-    //is not possible return a covariant container, so I'm using template to return a container of a more specific (derived) type
+    // is not possible return a covariant container, so I'm using template to return a container of a more specific (derived) type
     template<class T>
     QList<T> getTracks() const
     {
@@ -53,8 +46,10 @@ public:
         return castedTracks;
     }
 
+    void setTintColor(const QColor &color);
+
 protected:
-    //void paintEvent(QPaintEvent *);
+
     void changeEvent(QEvent *) override;
 
     virtual void translateUi();
@@ -65,11 +60,10 @@ protected:
 
     virtual BaseTrackView *createTrackView(long trackID) = 0;
 
-    QLineEdit *groupNameField;
     QWidget *topPanel;
     QBoxLayout *tracksLayout;
     QBoxLayout *topPanelLayout;
-    QBoxLayout *mainLayout;
+    QGridLayout *mainLayout;
 
     virtual void refreshStyleSheet();
 
@@ -81,7 +75,13 @@ private slots:
     void showMaxPeakMarker(bool showMarker);
 
 private:
-    void setupUI(TextEditorModifier *textEditorFactory);
+    void setupUI();
 };
+
+
+inline int TrackGroupView::getTracksCount() const
+{
+    return trackViews.size();
+}
 
 #endif // TRACKGROUPVIEW_H

@@ -7,9 +7,11 @@
 #include "JamTabaAUPlugin.h"
 #import "MainWindowPlugin.h"
 #import "JamTabaAUPlugin.h"
+#import "Logging.h"
 
 #include <QtPlugin>
 Q_IMPORT_PLUGIN(QCocoaIntegrationPlugin);
+Q_IMPORT_PLUGIN(AVFServicePlugin) // Camera
 
 #define APP_VERSION VERSION  // VERSION is defined in Configurator.h
 
@@ -28,6 +30,7 @@ Q_IMPORT_PLUGIN(QCocoaIntegrationPlugin);
     QApplication::setApplicationName("JamTaba 2");
     QApplication::setAttribute(Qt::AA_MacPluginApplication);
     QApplication::setAttribute(Qt::AA_DontUseNativeMenuBar); // not working in qt 5.6.2
+    QGuiApplication::setAttribute(Qt::AA_EnableHighDpiScaling); // fixing issue https://github.com/elieserdejesus/JamTaba/issues/1216
     
     JamTabaAUPlugin *auPlugin = nullptr;
     UInt32 size = sizeof(JamTabaAUInterface *);
@@ -45,7 +48,8 @@ Q_IMPORT_PLUGIN(QCocoaIntegrationPlugin);
     if (!QApplication::instance())
     {
         int argc = 0;
-        new QApplication(argc, 0);
+        QApplication *application = new QApplication(argc, 0);
+        application->setStyle("fusion"); // same visual in all plataforms
     }
 
     uiFreshlyLoadedView = [[JamTaba_UIView alloc] init];

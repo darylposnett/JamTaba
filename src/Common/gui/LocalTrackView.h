@@ -2,12 +2,13 @@
 #define LOCAL_TRACK_VIEW_H
 
 #include "BaseTrackView.h"
-#include "PeakMeter.h"
+#include "gui/widgets/PeakMeter.h"
+
 #include <QPushButton>
 
 class FxPanel;
 
-namespace Audio {
+namespace audio {
 class LocalInputNode;
 }
 
@@ -18,7 +19,7 @@ class LocalTrackView : public BaseTrackView
     Q_OBJECT
 
 public:
-    LocalTrackView(Controller::MainController *mainController, int channelIndex);
+    LocalTrackView(controller::MainController *mainController, int channelIndex);
 
     void setInitialValues(float initialGain, BaseTrackView::Boost boostValue, float initialPan, bool muted, bool stereoInverted);
 
@@ -32,36 +33,37 @@ public:
 
     void detachMainController();
 
-    inline int getInputIndex() const
-    {
-        return getTrackID();
-    }
+    int getInputIndex() const;
 
-    Audio::LocalInputNode *getInputNode() const;
+    audio::LocalInputNode *getInputNode() const;
 
-    virtual void setActivatedStatus(bool unlighted);
+    virtual void setActivatedStatus(bool unlighted) override;
 
     virtual void setPeakMetersOnlyMode(bool peakMetersOnly);
     void togglePeakMetersOnlyMode();
 
-    inline bool isShowingPeakMetersOnly() const { return peakMetersOnly; }
+    bool isShowingPeakMetersOnly() const;
 
-    QSize sizeHint() const;
+    QSize sizeHint() const override;
 
     virtual void reset();
 
     void mute(bool b);
     void solo(bool b);
-    void initializeBoostButton(Boost boostValue);
+    void initializeBoostSpinBox(Boost boostValue);
+
+    void setTintColor(const QColor &color) override;
 
 signals:
     void openLooperEditor(uint trackIndex);
 
 protected:
-    Audio::LocalInputNode *inputNode;
+    audio::LocalInputNode *inputNode;
 
     QPushButton *buttonStereoInversion;
     QPushButton *buttonLooper;
+
+    bool peakMetersOnly;
 
     virtual void setupMetersLayout();
 
@@ -74,7 +76,6 @@ private:
     QPushButton *createLooperButton();
 
     bool inputIsUsedByThisTrack(int inputIndexInAudioDevice) const;
-    bool peakMetersOnly;
     void deleteWidget(QWidget *widget);
 
     class LooperIconFactory;
@@ -86,5 +87,16 @@ private slots:
     void updateLooperButtonIcon();
 
 };
+
+
+inline bool LocalTrackView::isShowingPeakMetersOnly() const
+{
+    return peakMetersOnly;
+}
+
+inline int LocalTrackView::getInputIndex() const
+{
+    return getTrackID();
+}
 
 #endif

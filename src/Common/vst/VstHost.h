@@ -7,7 +7,7 @@
 #include "midi/MidiMessage.h"
 #include "../audio/Host.h"
 
-namespace Vst {
+namespace vst {
 
 class VstPlugin;
 class VstLoader;
@@ -30,7 +30,7 @@ public:
         return blockSize;
     }
 
-    std::vector<Midi::MidiMessage> pullReceivedMidiMessages() override;
+    std::vector<midi::MidiMessage> pullReceivedMidiMessages() override;
 
     void setSampleRate(int sampleRate) override;
     void setBlockSize(int blockSize) override;
@@ -54,7 +54,7 @@ private:
 
     static QScopedPointer<VstHost> hostInstance;
     VstHost();
-    VstHost(const VstHost &);// copy constructor
+    VstHost(const VstHost &); // copy constructor
 
     bool tempoIsValid() const;
 

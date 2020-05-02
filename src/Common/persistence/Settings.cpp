@@ -11,9 +11,9 @@
 #include <QStringList>
 #include <QSettings>
 #include "log/Logging.h"
-#include "audio/vorbis/VorbisEncoder.h"
+#include "audio/vorbis/Vorbis.h"
 
-using namespace Persistence;
+using namespace persistence;
 
 #if defined(Q_OS_WIN64) || defined(Q_OS_MAC64)
 QString Settings::fileName = "Jamtaba64.json";
@@ -26,68 +26,82 @@ QString Settings::fileName = "Jamtaba.json";
 SettingsObject::SettingsObject(const QString &name) :
     name(name)
 {
+    qCDebug(jtSettings) << "SettingsObject ctor";
 }
 
 SettingsObject::~SettingsObject()
 {
+    // qCDebug(jtSettings) << "SettingsObject destroyed";
 }
 
 int SettingsObject::getValueFromJson(const QJsonObject &json, const QString &propertyName,
                                      int fallBackValue)
 {
-    if (json.contains(propertyName))
-        return json[propertyName].toInt();
-    return fallBackValue;
+    auto val = json.contains(propertyName) ? json[propertyName].toInt() : fallBackValue;
+    qCDebug(jtSettings) << "SettingsObject getValueFromJson: " << propertyName << " = " << val;
+
+    return val;
 }
 
 bool SettingsObject::getValueFromJson(const QJsonObject &json, const QString &propertyName,
                                       bool fallBackValue)
 {
-    if (json.contains(propertyName))
-        return json[propertyName].toBool();
-    return fallBackValue;
+    auto val = json.contains(propertyName) ? json[propertyName].toBool() : fallBackValue;
+    qCDebug(jtSettings) << "SettingsObject getValueFromJson: " << propertyName << " = " << val;
+
+    return val;
 }
 
 QString SettingsObject::getValueFromJson(const QJsonObject &json, const QString &propertyName,
                                          QString fallBackValue)
 {
-    if (json.contains(propertyName))
-        return json[propertyName].toString();
-    return fallBackValue;
+    auto val = json.contains(propertyName) ? json[propertyName].toString() : fallBackValue;
+    qCDebug(jtSettings) << "SettingsObject getValueFromJson: " << propertyName << " = " << val;
+    return val;
 }
 
 float SettingsObject::getValueFromJson(const QJsonObject &json, const QString &propertyName,
                                        float fallBackValue)
 {
-    if (json.contains(propertyName))
-        return (float)(json[propertyName].toDouble());
-    return fallBackValue;
+    auto val = json.contains(propertyName) ? static_cast<float>(json[propertyName].toDouble()) : fallBackValue;
+    qCDebug(jtSettings) << "SettingsObject getValueFromJson: " << propertyName << " = " << val;
+    return val;
 }
 
 QJsonArray SettingsObject::getValueFromJson(const QJsonObject &json, const QString &propertyName,
-                                           QJsonArray fallBackValue){
+                                           QJsonArray fallBackValue)
+{
+    qCDebug(jtSettings) << "SettingsObject getValueFromJson: propertyName = " << propertyName;
+
     if (json.contains(propertyName))
         return json[propertyName].toArray();
+
     return fallBackValue;
 }
 
 QJsonObject SettingsObject::getValueFromJson(const QJsonObject &json, const QString &propertyName,
-                                           QJsonObject fallBackValue){
+                                           QJsonObject fallBackValue)
+{
+    qCDebug(jtSettings) << "SettingsObject getValueFromJson: propertyName = " << propertyName;
+
     if (json.contains(propertyName))
         return json[propertyName].toObject();
+
     return fallBackValue;
 }
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-LooperSettings::LooperSettings()
-    : SettingsObject("Looper"),
-      preferredLayersCount(4),
-      preferredMode(0),
-      loopsFolder(""),
-      encodingAudioWhenSaving(false),
-      waveFilesBitDepth(16) // 16 bits
-{
 
+LooperSettings::LooperSettings() :
+    SettingsObject("Looper"),
+    preferredLayersCount(4),
+    preferredMode(0),
+    loopsFolder(""),
+    encodingAudioWhenSaving(false),
+    waveFilesBitDepth(16) // 16 bits
+{
+    qCDebug(jtSettings) << "LooperSettings ctor";
+    setDefaultLooperFilesPath();
 }
 
 void LooperSettings::read(const QJsonObject &in)
@@ -97,6 +111,7 @@ void LooperSettings::read(const QJsonObject &in)
     loopsFolder = getValueFromJson(in, "loopsFolder", QString());
     encodingAudioWhenSaving = getValueFromJson(in, "encodeAudio", false);
     waveFilesBitDepth = getValueFromJson(in, "bitDepth", quint8(16)); // 16 bit as default value
+
     if (!(waveFilesBitDepth == 16 || waveFilesBitDepth == 32)) {
         qWarning() << "Invalid bit depth " << waveFilesBitDepth << ", using 16 bits as default value";
         waveFilesBitDepth = 16;
@@ -120,20 +135,36 @@ void LooperSettings::read(const QJsonObject &in)
     }
 
     if (useDefaultSavePath) {
-        QString userDocuments = QStandardPaths::displayName(QStandardPaths::DocumentsLocation);
-        QDir pathDir(QDir::homePath());
-        QDir documentsDir(pathDir.absoluteFilePath(userDocuments));
-        loopsFolder = QDir(documentsDir).absoluteFilePath("JamTaba/Looper");
-        QDir saveDir(loopsFolder);
-        if (!saveDir.exists()) {
-            saveDir.mkpath(".");
-            qDebug() << "Creating looper data folder " << saveDir;
-        }
+       setDefaultLooperFilesPath();
+    }
+
+    qCDebug(jtSettings) << "LooperSettings: preferredLayersCount " << preferredLayersCount
+                    << "; preferredMode " << preferredMode
+                    << "; loopsFolder " << loopsFolder
+                    << " (useDefaultSavePath " << useDefaultSavePath << ")"
+                    << "; encodingAudioWhenSaving " << encodingAudioWhenSaving
+                    << "; waveFilesBitDepth " << waveFilesBitDepth;
+
+}
+
+void LooperSettings::setDefaultLooperFilesPath()
+{
+    qCDebug(jtSettings) << "LooperSettings setDefaultLooperFilesPath";
+
+    QString userDocuments = QStandardPaths::displayName(QStandardPaths::DocumentsLocation);
+    QDir pathDir(QDir::homePath());
+    QDir documentsDir(pathDir.absoluteFilePath(userDocuments));
+    loopsFolder = QDir(documentsDir).absoluteFilePath("JamTaba/Looper");
+    QDir saveDir(loopsFolder);
+    if (!saveDir.exists()) {
+        saveDir.mkpath(".");
+        qDebug() << "Creating looper data folder " << saveDir;
     }
 }
 
 void LooperSettings::write(QJsonObject &out) const
 {
+    qCDebug(jtSettings) << "LooperSettings write";
     out["preferresLayersCount"] = preferredLayersCount;
     out["preferredMode"] = preferredMode;
     out["loopsFolder"] = loopsFolder;
@@ -148,11 +179,13 @@ void LooperSettings::write(QJsonObject &out) const
 PrivateServerSettings::PrivateServerSettings() :
     SettingsObject("PrivateServer")
 {
+    qCDebug(jtSettings) << "PrivateServerSettings ctor";
     addPrivateServerData("localhost", 2049);
 }
 
 void PrivateServerSettings::addPrivateServerData(const QString &serverName, int serverPort, const QString &password)
 {
+    qCDebug(jtSettings) << "PrivateServerSettings addPrivateServerData";
     if (lastServers.contains(serverName))
         lastServers.removeOne(serverName);
 
@@ -164,6 +197,7 @@ void PrivateServerSettings::addPrivateServerData(const QString &serverName, int 
 
 void PrivateServerSettings::write(QJsonObject &out) const
 {
+    qCDebug(jtSettings) << "PrivateServerSettings write";
     QJsonArray serversArray;
     for (const QString &server : lastServers) {
         serversArray.append(server);
@@ -187,20 +221,33 @@ void PrivateServerSettings::read(const QJsonObject &in)
 
     lastPort = getValueFromJson(in, "lastPort", (int)2049);
     lastPassword = getValueFromJson(in, "lastPassword", QString(""));
+
+    qCDebug(jtSettings) << "PrivateServerSettings: lastServers " << lastServers
+                        << "; lastPort " << lastPort
+                        << "; lastPassword " << lastPassword;
 }
 
 void Settings::addPrivateServer(const QString &serverName, int serverPort, const QString &password)
 {
+    qCDebug(jtSettings) << "PrivateServerSettings addPrivateServer";
     privateServerSettings.addPrivateServerData(serverName, serverPort, password);
 }
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 AudioSettings::AudioSettings() :
     SettingsObject("audio"),
     sampleRate(44100),
     bufferSize(128),
-    encodingQuality(VorbisEncoder::QUALITY_NORMAL)
+    encodingQuality(vorbis::EncoderQualityNormal),
+    firstIn(-1),
+    firstOut(-1),
+    lastIn(-1),
+    lastOut(-1),
+    audioInputDevice(""),
+    audioOutputDevice("")
 {
+    qCDebug(jtSettings) << "AudioSettings ctor";
 }
 
 void AudioSettings::read(const QJsonObject &in)
@@ -211,40 +258,60 @@ void AudioSettings::read(const QJsonObject &in)
     firstOut = getValueFromJson(in, "firstOut", 0);
     lastIn = getValueFromJson(in, "lastIn", 0);
     lastOut = getValueFromJson(in, "lastOut", 0);
-    audioDevice = getValueFromJson(in, "audioDevice", -1);
+    audioInputDevice = getValueFromJson(in, "audioInputDevice", QString(""));
+    audioOutputDevice = getValueFromJson(in, "audioOutputDevice", QString(""));
 
-    encodingQuality = getValueFromJson(in, "encodingQuality", VorbisEncoder::QUALITY_NORMAL); // using VorbisEncoder.QUALITY_NORMAL as fallback value.
+    encodingQuality = getValueFromJson(in, "encodingQuality", vorbis::EncoderQualityNormal); // using normal quality as fallback value.
 
-    //ensure vorbis quality is in accepted range
-    if (encodingQuality < VorbisEncoder::QUALITY_LOW)
-        encodingQuality = VorbisEncoder::QUALITY_LOW;
-    else if(encodingQuality > VorbisEncoder::QUALITY_HIGH)
-        encodingQuality = VorbisEncoder::QUALITY_HIGH;
+    // ensure vorbis quality is in accepted range
+    if (encodingQuality < vorbis::EncoderQualityLow)
+        encodingQuality = vorbis::EncoderQualityLow;
+    else if(encodingQuality > vorbis::EncoderQualityHigh)
+        encodingQuality = vorbis::EncoderQualityHigh;
+
+    qCDebug(jtSettings) << "AudioSettings: sampleRate " << sampleRate
+                        << "; bufferSize " << bufferSize
+                        << "; firstIn " << firstIn
+                        << "; firstOut " << firstOut
+                        << "; lastIn " << lastIn
+                        << "; lastOut " << lastOut
+                        << "; audioInputDevice " << audioInputDevice
+                        << "; audioOutputDevice " << audioOutputDevice
+                        << "; encodingQuality " << encodingQuality;
 }
 
 void AudioSettings::write(QJsonObject &out) const
 {
+    qCDebug(jtSettings) << "AudioSettings write";
     out["sampleRate"] = sampleRate;
     out["bufferSize"] = bufferSize;
     out["firstIn"] = firstIn;
     out["firstOut"] = firstOut;
     out["lastIn"] = lastIn;
     out["lastOut"] = lastOut;
-    out["audioDevice"] = audioDevice;
+
+    out["audioInputDevice"] = audioInputDevice;
+    out["audioOutputDevice"] = audioOutputDevice;
+
     out["encodingQuality"] = encodingQuality;
 }
 
 // +++++++++++++++++++++++++++++
+
 MidiSettings::MidiSettings() :
     SettingsObject("midi")
 {
+    qCDebug(jtSettings) << "MidiSettings ctor";
 }
 
 void MidiSettings::write(QJsonObject &out) const
 {
+    qCDebug(jtSettings) << "MidiSettings write";
     QJsonArray midiArray;
-    foreach (bool state, inputDevicesStatus)
+
+    for (bool state : inputDevicesStatus)
         midiArray.append(state);
+
     out["inputsState"] = midiArray;
 }
 
@@ -256,24 +323,31 @@ void MidiSettings::read(const QJsonObject &in)
         for (int i = 0; i < inputsArray.size(); ++i)
             inputDevicesStatus.append(inputsArray.at(i).toBool(true));
     }
+
+    qCDebug(jtSettings) << "MidiSettings: inputDevicesStatus " << inputDevicesStatus;
 }
 
 // ++++++++++++++++++++++++++++++
+
 MultiTrackRecordingSettings::MultiTrackRecordingSettings() :
     SettingsObject("recording"),
     saveMultiTracksActivated(false),
     jamRecorderActivated(QMap<QString, bool>()),
-    recordingPath("")
+    recordingPath(""),
+    dirNameDateFormat("Qt::TextDate")
 {
-	// TODO: populate jamRecorderActivated with {jamRecorderId, false} pairs for each known jamRecorder
+    qCDebug(jtSettings) << "MultiTrackRecordingSettings ctor";
+    // TODO: populate jamRecorderActivated with {jamRecorderId, false} pairs for each known jamRecorder
 }
 
 void MultiTrackRecordingSettings::write(QJsonObject &out) const
 {
+    qCDebug(jtSettings) << "MultiTrackRecordingSettings write";
     out["recordingPath"] = QDir::toNativeSeparators(recordingPath);
+    out["dirNameDateFormat"] = dirNameDateFormat;
     out["recordActivated"] = saveMultiTracksActivated;
     QJsonObject jamRecorders = QJsonObject();
-    foreach(QString key, jamRecorderActivated.keys()){
+    for (const QString &key : jamRecorderActivated.keys()) {
         QJsonObject jamRecorder = QJsonObject();
         jamRecorder["activated"] = jamRecorderActivated[key];
         jamRecorders[key] = jamRecorder;
@@ -297,22 +371,44 @@ void MultiTrackRecordingSettings::read(const QJsonObject &in)
     } else {
         useDefaultRecordingPath = true;
     }
-    if (useDefaultRecordingPath) {
-        QString userDocuments = QStandardPaths::displayName(QStandardPaths::DocumentsLocation);
-        QDir pathDir(QDir::homePath());
-        QDir documentsDir(pathDir.absoluteFilePath(userDocuments));
-        recordingPath = QDir(documentsDir).absoluteFilePath("Jamtaba");
+
+    if (useDefaultRecordingPath)
+        recordingPath = MultiTrackRecordingSettings::getDefaultRecordingPath();
+
+    if (in.contains("dirNameDateFormat")) {
+        dirNameDateFormat = in["dirNameDateFormat"].toString();
+    } else {
+        dirNameDateFormat = "Qt::TextDate";
     }
+
     saveMultiTracksActivated = getValueFromJson(in, "recordActivated", false);
 
     QJsonObject jamRecorders = getValueFromJson(in, "jamRecorders", QJsonObject());
-    foreach(QString key, jamRecorders.keys()) {
+    for(const QString &key : jamRecorders.keys()) {
         QJsonObject jamRecorder = jamRecorders[key].toObject();
         jamRecorderActivated[key] = getValueFromJson(jamRecorder, "activated", false);
     }
+
+    qCDebug(jtSettings) << "MultiTrackRecordingSettings: recordingPath " << recordingPath
+                        << " (useDefaultRecordingPath " << useDefaultRecordingPath << ")"
+                        << "; dirNameDateFormat " << dirNameDateFormat
+                        << "; saveMultiTracksActivated " << saveMultiTracksActivated
+                        << "; jamRecorderActivated " << jamRecorderActivated;
+}
+
+QString MultiTrackRecordingSettings::getDefaultRecordingPath()
+{
+    qCDebug(jtSettings) << "MultiTrackRecordingSettings getDefaultRecordingPath";
+    QString userDocuments = QStandardPaths::displayName(QStandardPaths::DocumentsLocation);
+    QDir pathDir(QDir::homePath());
+    QDir documentsDir(pathDir.absoluteFilePath(userDocuments));
+    QDir jamTabaDir = QDir(documentsDir).absoluteFilePath("JamTaba");
+
+    return QDir(jamTabaDir).absoluteFilePath("Jams"); // using 'Jams' as default recording folder (issue #891)
 }
 
 // +++++++++++++++++++++++++++++
+
 MetronomeSettings::MetronomeSettings() :
     SettingsObject("metronome"),
     pan(0),
@@ -320,8 +416,11 @@ MetronomeSettings::MetronomeSettings() :
     muted(false),
     usingCustomSounds(false),
     customPrimaryBeatAudioFile(""),
-    customSecondaryBeatAudioFile("")
+    customOffBeatAudioFile(""),
+    customAccentBeatAudioFile("")
 {
+    qCDebug(jtSettings) << "MetronomeSettings ctor";
+    //
 }
 
 void MetronomeSettings::read(const QJsonObject &in)
@@ -331,32 +430,76 @@ void MetronomeSettings::read(const QJsonObject &in)
     muted = getValueFromJson(in, "muted", false);
     usingCustomSounds = getValueFromJson(in, "usingCustomSounds", false);
     customPrimaryBeatAudioFile = getValueFromJson(in, "customPrimaryBeatAudioFile", QString(""));
-    customSecondaryBeatAudioFile = getValueFromJson(in, "customSecondaryBeatAudioFile", QString(""));
+    customOffBeatAudioFile = getValueFromJson(in, "customOffBeatAudioFile", getValueFromJson(in, "customSecondaryBeatAudioFile", QString(""))); // backward compatible
+    customAccentBeatAudioFile = getValueFromJson(in, "customAccentBeatAudioFile", QString(""));
     builtInMetronomeAlias = getValueFromJson(in, "builtInMetronome", QString("Default"));
+
+    qCDebug(jtSettings) << "MetronomeSettings: pan " << pan
+                        << "; gain " << gain
+                        << "; muted " << muted
+                        << "; usingCustomSounds " << usingCustomSounds
+                        << "; customPrimaryBeatAudioFile " << customPrimaryBeatAudioFile
+                        << "; customOffBeatAudioFile " << customOffBeatAudioFile
+                        << "; customAccentBeatAudioFile " << customAccentBeatAudioFile
+                        << "; builtInMetronomeAlias " << builtInMetronomeAlias;
 }
 
 void MetronomeSettings::write(QJsonObject &out) const
 {
+    qCDebug(jtSettings) << "MetronomeSettings write";
     out["pan"] = pan;
     out["gain"] = gain;
     out["muted"] = muted;
     out["usingCustomSounds"] = usingCustomSounds;
     out["customPrimaryBeatAudioFile"] = customPrimaryBeatAudioFile;
-    out["customSecondaryBeatAudioFile"] = customSecondaryBeatAudioFile;
+    out["customOffBeatAudioFile"] = customOffBeatAudioFile;
+    out["customAccentBeatAudioFile"] = customAccentBeatAudioFile;
     out["builtInMetronome"] = builtInMetronomeAlias;
 }
 
 // +++++++++++++++++++++++++++
+
+CollapseSettings::CollapseSettings() :
+    SettingsObject("Collapse"),
+    localChannelsCollapsed(false),
+    bottomSectionCollapsed(false),
+    chatSectionCollapsed(false)
+{
+    qCDebug(jtSettings) << "CollapseSettings ctor";
+}
+
+void CollapseSettings::read(const QJsonObject &in)
+{
+    localChannelsCollapsed = getValueFromJson(in, "localChannels", false);
+    bottomSectionCollapsed = getValueFromJson(in, "bottomSection", false);
+    chatSectionCollapsed = getValueFromJson(in, "chatSection", false);
+
+    qCDebug(jtSettings) << "CollapseSettings: localChannelsCollapsed " << localChannelsCollapsed
+                        << "; bottomSectionCollapsed" << bottomSectionCollapsed
+                        << "; chatSectionCollapsed " << chatSectionCollapsed;
+}
+
+void CollapseSettings::write(QJsonObject &out) const
+{
+    qCDebug(jtSettings) << "CollapseSettings write";
+    out["localChannels"] = localChannelsCollapsed;
+    out["bottomSection"] = bottomSectionCollapsed;
+    out["chatSection"] = chatSectionCollapsed;
+}
+
+// ++++++++++++++++++++++
+
 WindowSettings::WindowSettings() :
     SettingsObject("window"),
     maximized(false),
     fullScreenMode(false)
 {
+    qCDebug(jtSettings) << "WindowSettings ctor";
 }
 
 void WindowSettings::read(const QJsonObject &in)
 {
-    maximized = getValueFromJson(in, "maximized", false);// not maximized as default
+    maximized = getValueFromJson(in, "maximized", false); // not maximized as default
     fullScreenMode = getValueFromJson(in, "fullScreenView", false);// use normal mode as default;
     if (in.contains("location")) {
         QJsonObject locationObj = in["location"].toObject();
@@ -369,10 +512,16 @@ void WindowSettings::read(const QJsonObject &in)
         size.setWidth(getValueFromJson(sizeObject, "width", (int)800));
         size.setHeight(getValueFromJson(sizeObject, "height", (int)600));
     }
+
+    qCDebug(jtSettings) << "WindowSettings: maximized " << maximized
+                        << "; fullScreenMode " << fullScreenMode
+                        << "; location " << location
+                        << "; size " << size;
 }
 
 void WindowSettings::write(QJsonObject &out) const
 {
+    qCDebug(jtSettings) << "WindowSettings write";
     out["maximized"] = maximized;
     out["fullScreenView"] = fullScreenMode;
 
@@ -388,27 +537,34 @@ void WindowSettings::write(QJsonObject &out) const
 }
 
 // +++++++++++++++++++++++++++++++++++++++
+
 VstSettings::VstSettings() :
     SettingsObject("VST")
 {
+    qCDebug(jtSettings) << "VstSettings ctor";
 }
 
 // VST JSON WRITER
 void VstSettings::write(QJsonObject &out) const
 {
+    qCDebug(jtSettings) << "VstSettings write";
     QJsonArray scanPathsArray;
-    foreach (const QString &scanPath, foldersToScan)
+
+    for (const QString &scanPath : foldersToScan)
         scanPathsArray.append(scanPath);
+
     out["scanPaths"] = scanPathsArray;
 
     QJsonArray cacheArray;
-    foreach (const QString &pluginPath, cachedPlugins)
+    for (const QString &pluginPath : cachedPlugins)
         cacheArray.append(pluginPath);
+
     out["cachedPlugins"] = cacheArray;
 
     QJsonArray BlackedArray;
-    foreach (const QString &blackVst, blackedPlugins)
+    for (const QString &blackVst: blackedPlugins)
         BlackedArray.append(blackVst);
+
     out["BlackListPlugins"] = BlackedArray;
 }
 
@@ -436,20 +592,28 @@ void VstSettings::read(const QJsonObject &in)
         for (int x = 0; x < cacheArray.size(); ++x)
             blackedPlugins.append(cacheArray.at(x).toString());
     }
+
+    qCDebug(jtSettings) << "VstSettings: foldersToScan " << foldersToScan
+                        << "; cachedPlugins " << cachedPlugins
+                        << "; blackedPlugins " << blackedPlugins;
 }
+
 // +++++++++++++++++++++++++++++++++++++++
 
 AudioUnitSettings::AudioUnitSettings() :
     SettingsObject("AU")
 {
+    qCDebug(jtSettings) << "AudioUnitSettings ctor";
 }
 
 // AU JSON WRITER
 void AudioUnitSettings::write(QJsonObject &out) const
 {
+    qCDebug(jtSettings) << "AudioUnitSettings write";
     QJsonArray cacheArray;
-    foreach (const QString &pluginPath, cachedPlugins)
+    for (const QString &pluginPath : cachedPlugins)
         cacheArray.append(pluginPath);
+
     out["cachedPlugins"] = cacheArray;
 }
 
@@ -460,32 +624,34 @@ void AudioUnitSettings::read(const QJsonObject &in)
         QJsonArray cacheArray = in["cachedPlugins"].toArray();
         for (int x = 0; x < cacheArray.size(); ++x) {
             QString pluginFile = cacheArray.at(x).toString();
-
         }
     }
+    qCDebug(jtSettings) << "AudioUnitSettings: cachedPlugins " << cachedPlugins;
 }
 
 // +++++++++++++++++++++++++++++++++++++++
-Channel::Channel(const QString &name) :
-    name(name)
+
+Channel::Channel(int instrumentIndex) :
+    instrumentIndex(instrumentIndex)
 {
+    qCDebug(jtSettings) << "Channel ctor";
 }
 
-Plugin::Plugin(const Audio::PluginDescriptor &descriptor, bool bypassed, const QByteArray &data)
-    :   name(descriptor.getName()),
-        path(descriptor.getPath()),
-        manufacturer(descriptor.getManufacturer()),
-        bypassed(bypassed),
-        data(data),
-        category(descriptor.getCategory())
+Plugin::Plugin(const audio::PluginDescriptor &descriptor, bool bypassed, const QByteArray &data) :
+    name(descriptor.getName()),
+    path(descriptor.getPath()),
+    manufacturer(descriptor.getManufacturer()),
+    bypassed(bypassed),
+    data(data),
+    category(descriptor.getCategory())
 {
-
+    qCDebug(jtSettings) << "Plugin ctor";
 }
 
-Subchannel::Subchannel(int firstInput, int channelsCount, int midiDevice, int midiChannel,
+SubChannel::SubChannel(int firstInput, int channelsCount, int midiDevice, int midiChannel,
                        float gain, int boost, float pan, bool muted, bool stereoInverted,
-                       qint8 transpose, quint8 lowerMidiNote, quint8 higherMidiNote, bool routingMidiToFirstSubchannel)
-    :firstInput(firstInput),
+                       qint8 transpose, quint8 lowerMidiNote, quint8 higherMidiNote, bool routingMidiToFirstSubchannel) :
+    firstInput(firstInput),
     channelsCount(channelsCount),
     midiDevice(midiDevice),
     midiChannel(midiChannel),
@@ -499,15 +665,16 @@ Subchannel::Subchannel(int firstInput, int channelsCount, int midiDevice, int mi
     higherMidiNote(higherMidiNote),
     routingMidiToFirstSubchannel(routingMidiToFirstSubchannel)
 {
-
+    qCDebug(jtSettings) << "SubChannel ctor";
 }
 
 LocalInputTrackSettings::LocalInputTrackSettings(bool createOneTrack) :
     SettingsObject("inputs")
 {
+    qCDebug(jtSettings) << "LocalInputTrackSettings ctor";
     if (createOneTrack) {
         // create a default channel
-        Channel channel("my channel");
+        Channel channel(-1); // default instrument icon
         qint8 transpose = 0;
         quint8 lowerNote = 0;
         quint8 higherNote = 127;
@@ -521,7 +688,7 @@ LocalInputTrackSettings::LocalInputTrackSettings(bool createOneTrack) :
         bool muted = false;
         bool stereoInverted = false;
         bool routingMidi = false;
-        Subchannel subchannel(firstInput, channelsCount, midiDevice, midiChannel, gain, boost, pan, muted, stereoInverted, transpose, lowerNote, higherNote, routingMidi);
+        SubChannel subchannel(firstInput, channelsCount, midiDevice, midiChannel, gain, boost, pan, muted, stereoInverted, transpose, lowerNote, higherNote, routingMidi);
         channel.subChannels.append(subchannel);
         this->channels.append(channel);
     }
@@ -529,13 +696,14 @@ LocalInputTrackSettings::LocalInputTrackSettings(bool createOneTrack) :
 
 void LocalInputTrackSettings::write(QJsonObject &out) const
 {
+    qCDebug(jtSettings) << "LocalInputTrackSettings write";
     QJsonArray channelsArray;
-    foreach (const Channel &channel, channels) {
+    for (const Channel &channel : channels) {
         QJsonObject channelObject;
-        channelObject["name"] = channel.name;
+        channelObject["instrument"] = channel.instrumentIndex;
         QJsonArray subchannelsArrays;
         int subchannelsCount = 0;
-        foreach (const Subchannel &sub, channel.subChannels) {
+        for (const SubChannel &sub : channel.subChannels) {
             QJsonObject subChannelObject;
             subChannelObject["firstInput"]       = sub.firstInput;
             subChannelObject["channelsCount"]    = sub.channelsCount;
@@ -554,7 +722,7 @@ void LocalInputTrackSettings::write(QJsonObject &out) const
                 subChannelObject["routingMidiInput"] = sub.routingMidiToFirstSubchannel;
 
             QJsonArray pluginsArray;
-            foreach (const Persistence::Plugin &plugin, sub.getPlugins()) {
+            for (const auto &plugin : sub.getPlugins()) {
                 QJsonObject pluginObject;
                 pluginObject["name"]     = plugin.name;
 
@@ -587,36 +755,45 @@ void LocalInputTrackSettings::write(QJsonObject &out) const
 
 Plugin LocalInputTrackSettings::jsonObjectToPlugin(QJsonObject pluginObject)
 {
-    QString name = getValueFromJson(pluginObject, "name", QString(""));
+    qCDebug(jtSettings) << "LocalInputTrackSettings jsonObjectToPlugin";
 
-    QString path = getValueFromJson(pluginObject, "path", QString(""));
+    QString name = getValueFromJson(pluginObject, "name", QString());
+
+    QString path = getValueFromJson(pluginObject, "path", QString());
 
     bool bypassed = getValueFromJson(pluginObject, "bypassed", false);
 
-    QString dataString = getValueFromJson(pluginObject, "data", QString(""));
+    QString dataString = getValueFromJson(pluginObject, "data", QString());
 
-    Audio::PluginDescriptor::Category category = static_cast<Audio::PluginDescriptor::Category>(getValueFromJson(pluginObject, "category", quint8(1))); // 1 is the VST enum value
+    auto category = static_cast<audio::PluginDescriptor::Category>(getValueFromJson(pluginObject, "category", quint8(1))); // 1 is the VST enum value
 
     QByteArray rawByteArray(dataString.toStdString().c_str());
 
-    QString manufacturer = getValueFromJson(pluginObject, "manufacturer", QString(""));
+    QString manufacturer = getValueFromJson(pluginObject, "manufacturer", QString());
 
-    Audio::PluginDescriptor descriptor(name, category, manufacturer, path);
+    audio::PluginDescriptor descriptor(name, category, manufacturer, path);
 
-    return Persistence::Plugin(descriptor, bypassed, QByteArray::fromBase64(rawByteArray));
+    return persistence::Plugin(descriptor, bypassed, QByteArray::fromBase64(rawByteArray));
 }
 
 void LocalInputTrackSettings::read(const QJsonObject &in, bool allowSubchannels)
 {
+    qCDebug(jtSettings) << "LocalInputTrackSettings read (too complex to dump...)";
+
     if (in.contains("channels")) {
         QJsonArray channelsArray = in["channels"].toArray();
         for (int i = 0; i < channelsArray.size(); ++i) {
+
             QJsonObject channelObject = channelsArray.at(i).toObject();
-            Persistence::Channel channel(getValueFromJson(channelObject, "name", QString("")));
+            persistence::Channel channel(getValueFromJson(channelObject, "instrument", static_cast<int>(-1)));
+
             if (channelObject.contains("subchannels")) {
+
                 QJsonArray subChannelsArray = channelObject["subchannels"].toArray();
                 int subChannelsLimit = allowSubchannels ? subChannelsArray.size() : 1;
+
                 for (int k = 0; k < subChannelsLimit; ++k) {
+
                     QJsonObject subChannelObject = subChannelsArray.at(k).toObject();
                     int firstInput = getValueFromJson(subChannelObject, "firstInput", 0);
                     int channelsCount = getValueFromJson(subChannelObject, "channelsCount", 0);
@@ -634,19 +811,21 @@ void LocalInputTrackSettings::read(const QJsonObject &in, bool allowSubchannels)
 
                     QList<Plugin> plugins;
                     if (subChannelObject.contains("plugins")) {
+
                         QJsonArray pluginsArray = subChannelObject["plugins"].toArray();
+
                         for (int p = 0; p < pluginsArray.size(); ++p) {
                             QJsonObject pluginObject = pluginsArray.at(p).toObject();
                             Plugin plugin = jsonObjectToPlugin(pluginObject);
                             bool pathIsValid = !plugin.path.isEmpty();
-                            if (plugin.category == Audio::PluginDescriptor::VST_Plugin)
+                            if (plugin.category == audio::PluginDescriptor::VST_Plugin)
                                 pathIsValid = QFile(plugin.path).exists();
 
                             if (pathIsValid)
                                 plugins.append(plugin);
                         }
                     }
-                    Persistence::Subchannel subChannel(firstInput, channelsCount, midiDevice,
+                    persistence::SubChannel subChannel(firstInput, channelsCount, midiDevice,
                                                        midiChannel, gain, boost, pan, muted, stereoInverted, transpose, lowerNote, higherNote, routingMidi);
                     subChannel.setPlugins(plugins);
                     channel.subChannels.append(subChannel);
@@ -659,17 +838,20 @@ void LocalInputTrackSettings::read(const QJsonObject &in, bool allowSubchannels)
 
 void LocalInputTrackSettings::read(const QJsonObject &in)
 {
-    read(in, true);// allowing multi subchannel by default
+    read(in, true); // allowing multi subchannel by default
 }
 
 // ++++++++++++++++++++++++++++++++++++++++++
+
 void Settings::storeUserName(const QString &newUserName)
 {
+    qCDebug(jtSettings) << "Settings storeUserName: from " << lastUserName << "; to " << newUserName;
     this->lastUserName = newUserName;
 }
 
 void Settings::setTranslation(const QString &localeName)
 {
+    qCDebug(jtSettings) << "Settings setTranslation: from " << translation << "; to " << localeName;
     QString name = localeName;
     if (name.contains(".")){
         name = name.left(name.indexOf("."));
@@ -680,74 +862,88 @@ void Settings::setTranslation(const QString &localeName)
 
 void Settings::addVstPlugin(const QString &pluginPath)
 {
+    qCDebug(jtSettings) << "Settings addVstPlugin: " << pluginPath;
     if (!vstSettings.cachedPlugins.contains(pluginPath))
         vstSettings.cachedPlugins.append(pluginPath);
 }
 
 void Settings::addVstToBlackList(const QString &pluginPath)
 {
+    qCDebug(jtSettings) << "Settings addVstToBlackList: " << pluginPath;
     if (!vstSettings.blackedPlugins.contains(pluginPath))
         vstSettings.blackedPlugins.append(pluginPath);
 }
 
 void Settings::removeVstFromBlackList(const QString &pluginPath)
 {
+    qCDebug(jtSettings) << "Settings removeVstFromBlackList: " << pluginPath;
     vstSettings.blackedPlugins.removeOne(pluginPath);
 }
 
 QStringList Settings::getVstPluginsPaths() const
 {
+    qCDebug(jtSettings) << "Settings getVstPluginsPaths";
     return vstSettings.cachedPlugins;
 }
 
 void Settings::clearVstCache()
 {
+    qCDebug(jtSettings) << "Settings clearVstCache";
     vstSettings.cachedPlugins.clear();
 }
 
 // CLEAR VST BLACKBOX
 void Settings::clearBlackBox()
 {
+    qCDebug(jtSettings) << "Settings clearBlackBox";
     vstSettings.blackedPlugins.clear();
 }
 
 // VST paths to scan
 void Settings::addVstScanPath(const QString &path)
 {
+    qCDebug(jtSettings) << "Settings addVstScanPath: " << path;
     vstSettings.foldersToScan.append(path);
 }
 
 void Settings::removeVstScanPath(const QString &path)
 {
+    qCDebug(jtSettings) << "Settings removeVstScanPath: " << path;
     vstSettings.foldersToScan.removeOne(path);
 }
 
 QStringList Settings::getVstScanFolders() const
 {
+    qCDebug(jtSettings) << "Settings getVstScanFolders";
     return vstSettings.foldersToScan;
 }
 
 QStringList Settings::getBlackListedPlugins() const
 {
+    qCDebug(jtSettings) << "Settings getVstScanFolders";
     return vstSettings.blackedPlugins;
 }
 
 // ++++++++++++++++++
+
 #ifdef Q_OS_MAC
 
 void Settings::addAudioUnitPlugin(const QString &pluginPath)
 {
+    qCDebug(jtSettings) << "Settings addAudioUnitPlugin: " << pluginPath;
     if (!audioUnitSettings.cachedPlugins.contains(pluginPath))
         audioUnitSettings.cachedPlugins.append(pluginPath);
 }
 
 void Settings::clearAudioUnitCache()
 {
+    qCDebug(jtSettings) << "Settings clearAudioUnitCache";
     audioUnitSettings.cachedPlugins.clear();
 }
 
 QStringList Settings::getAudioUnitsPaths() const
 {
+    qCDebug(jtSettings) << "Settings getAudioUnitsPaths";
     return audioUnitSettings.cachedPlugins;
 }
 
@@ -756,6 +952,9 @@ QStringList Settings::getAudioUnitsPaths() const
 // +++++++++++++++++++++++++++++
 void Settings::setMetronomeSettings(float gain, float pan, bool muted)
 {
+    qCDebug(jtSettings) << "Settings setMetronomeSettings: gain from " << metronomeSettings.gain << " to " << gain
+                        << "; pan from " << metronomeSettings.pan << " to " << pan
+                        << "; muted from " << metronomeSettings.muted << "" << muted;
     metronomeSettings.pan = pan;
     metronomeSettings.gain = gain;
     metronomeSettings.muted = muted;
@@ -763,33 +962,44 @@ void Settings::setMetronomeSettings(float gain, float pan, bool muted)
 
 void Settings::setBuiltInMetronome(const QString &metronomeAlias)
 {
+    qCDebug(jtSettings) << "Settings setBuiltInMetronome: from " << metronomeSettings.builtInMetronomeAlias << " to " << metronomeAlias << " (and not custom sounds)";
     metronomeSettings.builtInMetronomeAlias = metronomeAlias;
     metronomeSettings.usingCustomSounds = false;
 }
 
-void Settings::setCustomMetronome(const QString &primaryBeatAudioFile, const QString &secondaryBeatAudioFile)
+void Settings::setCustomMetronome(const QString &primaryBeatAudioFile, const QString &offBeatAudioFile, const QString &accentBeatAudioFile)
 {
-    if (QFileInfo(primaryBeatAudioFile).exists() && QFileInfo(secondaryBeatAudioFile).exists()){
+    qCDebug(jtSettings) << "Settings setCustomMetronome: primaryBeatAudioFile from " << metronomeSettings.customPrimaryBeatAudioFile << " to " << primaryBeatAudioFile
+                        << "; offBeatAudioFile from " << metronomeSettings.customOffBeatAudioFile << "to " << offBeatAudioFile
+                        << "; accentBeatAudioFile from " << metronomeSettings.customAccentBeatAudioFile << " to " << accentBeatAudioFile;
+    if (QFileInfo(primaryBeatAudioFile).exists() && QFileInfo(offBeatAudioFile).exists() && QFileInfo(accentBeatAudioFile).exists()) {
         metronomeSettings.customPrimaryBeatAudioFile = primaryBeatAudioFile;
-        metronomeSettings.customSecondaryBeatAudioFile = secondaryBeatAudioFile;
+        metronomeSettings.customOffBeatAudioFile = offBeatAudioFile;
+        metronomeSettings.customAccentBeatAudioFile = accentBeatAudioFile;
         metronomeSettings.usingCustomSounds = true;
     }
-    else{
+    else {
         metronomeSettings.customPrimaryBeatAudioFile = "";
-        metronomeSettings.customSecondaryBeatAudioFile = "";
+        metronomeSettings.customOffBeatAudioFile = "";
+        metronomeSettings.customAccentBeatAudioFile = "";
         metronomeSettings.usingCustomSounds = false;
     }
 }
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 void Settings::setFullScreenView(bool v)
 {
+    qCDebug(jtSettings) << "Settings setFullScreenView: from " << windowSettings.fullScreenMode << " to " << v;
     windowSettings.fullScreenMode = v;
 }
 
 // +++++++++   Window Location  +++++++++++++++++++++++
 void Settings::setWindowSettings(bool windowIsMaximized, const QPointF &location, const QSize &size)
 {
+    qCDebug(jtSettings) << "Settings setWindowSettings: windowIsMaximized from " << windowSettings.maximized << " to " << windowIsMaximized
+                        << "; location from " << windowSettings.location << " to " << location
+                        << "; size from " << windowSettings.size << " to " << size;
     QPointF newLocation(location);
     double x = (newLocation.x() >= 0) ? newLocation.x() : 0;
     double y = (newLocation.x() >= 0) ? newLocation.y() : 0;
@@ -804,27 +1014,37 @@ void Settings::setWindowSettings(bool windowIsMaximized, const QPointF &location
 }
 
 // ++++++++++++++++++++++++++++++++++++++++
-void Settings::setAudioSettings(int firstIn, int lastIn, int firstOut, int lastOut, int audioDevice)
+void Settings::setAudioSettings(int firstIn, int lastIn, int firstOut, int lastOut, QString audioInputDevice, QString audioOutputDevice)
 {
+    qCDebug(jtSettings) << "Settings setAudioSettings: firstIn from " << audioSettings.firstIn << " to " << firstIn
+                        << "; lastIn from " << audioSettings.lastIn << " to " << lastIn
+                        << "; firstOut from " << audioSettings.firstOut << " to " << firstOut
+                        << "; lastOut from " << audioSettings.lastOut << " to " << lastOut
+                        << "; audioInputDevice from " << audioSettings.audioInputDevice << " to " << audioInputDevice
+                        << "; audioOutputDevice from " << audioSettings.audioOutputDevice << " to " << audioOutputDevice;
     audioSettings.firstIn = firstIn;
     audioSettings.firstOut = firstOut;
     audioSettings.lastIn = lastIn;
     audioSettings.lastOut = lastOut;
-    audioSettings.audioDevice = audioDevice;
+    audioSettings.audioInputDevice = audioInputDevice;
+    audioSettings.audioOutputDevice = audioOutputDevice;
 }
 
 void Settings::setSampleRate(int newSampleRate)
 {
+    qCDebug(jtSettings) << "Settings setSampleRate: from " << audioSettings.sampleRate << " to " << newSampleRate;
     audioSettings.sampleRate = newSampleRate;
 }
 
 void Settings::setBufferSize(int bufferSize)
 {
+    qCDebug(jtSettings) << "Settings setBufferSize: from " << audioSettings.bufferSize << " to " << bufferSize;
     audioSettings.bufferSize = bufferSize;
 }
 
 bool Settings::readFile(const QList<SettingsObject *> &sections)
 {
+    qCDebug(jtSettings) << "Settings readFile";
     QDir configFileDir = Configurator::getInstance()->getBaseDir();
     QString absolutePath = configFileDir.absoluteFilePath(fileName);
     QFile configFile(absolutePath);
@@ -833,15 +1053,15 @@ bool Settings::readFile(const QList<SettingsObject *> &sections)
         QJsonDocument doc = QJsonDocument::fromJson(configFile.readAll());
         QJsonObject root = doc.object();
 
-        if (root.contains("masterGain"))// read last master gain
+        if (root.contains("masterGain")) // read last master gain
             this->masterFaderGain = root["masterGain"].toDouble();
         else
-            this->masterFaderGain = 1;// unit gain as default
+            this->masterFaderGain = 1; // unit gain as default
 
-        if (root.contains("userName"))// read user name
+        if (root.contains("userName")) // read user name
             this->lastUserName = root["userName"].toString();
 
-        if (root.contains("translation"))// read Translation
+        if (root.contains("translation")) // read Translation
             this->translation = root["translation"].toString();
         if (this->translation.isEmpty())
             this->translation = QLocale().bcp47Name().left(2);
@@ -849,30 +1069,49 @@ bool Settings::readFile(const QList<SettingsObject *> &sections)
         if (root.contains("theme"))
             this->theme = root["theme"].toString();
         if (this->theme.isEmpty())
-            this->theme = "Flat";//using flat as the new default theme
+            this->theme = "Navy_nm"; //using Navy as the new default theme
 
-        if (root.contains("intervalProgressShape"))// read intervall progress shape
-            this->ninjamIntervalProgressShape = root["intervalProgressShape"].toInt(0);// zero as default value
+        if (root.contains("intervalProgressShape")) // read intervall progress shape
+            this->ninjamIntervalProgressShape = root["intervalProgressShape"].toInt(0); // zero as default value
         else
             this->ninjamIntervalProgressShape = 0;
 
-        if (root.contains("tracksLayoutOrientation")) {
-            int value = root["tracksLayoutOrientation"].toInt(2);// 2 is the Qt::Vertical value
-            this->tracksLayoutOrientation = value == 2 ? Qt::Vertical : Qt::Horizontal;
-        } else {
-            this->tracksLayoutOrientation = Qt::Vertical;
-        }
+        tracksLayoutOrientation = root["tracksLayoutOrientation"].toInt(0); // vertical as fallback value;
 
         if (root.contains("usingNarrowTracks"))
             this->usingNarrowedTracks = root["usingNarrowTracks"].toBool(false);
         else
             this->usingNarrowedTracks = false;
 
+        if (root.contains("publicChatActivated")) {
+            publicChatActivated = root["publicChatActivated"].toBool(true);
+        }
+
         // read settings sections (Audio settings, Midi settings, ninjam settings, etc...)
-        foreach (SettingsObject *so, sections)
+        for (SettingsObject *so : sections)
             so->read(root[so->getName()].toObject());
+
+        if(root.contains("intervalsBeforeInactivityWarning")) {
+            intervalsBeforeInactivityWarning = root["intervalsBeforeInactivityWarning"].toInt();
+            if (intervalsBeforeInactivityWarning < 1)
+                intervalsBeforeInactivityWarning = 1;
+        }
+
+        if (root.contains("recentEmojis")) {
+            QJsonArray array = root["recentEmojis"].toArray();
+            for (int i = 0; i < array.count(); ++i) {
+                recentEmojis << array.at(i).toString();
+            }
+
+        }
+
+        if (root.contains("chatFontSizeOffset")) {
+            chatFontSizeOffset = root["chatFontSizeOffset"].toInt();
+        }
+
         return true;
-    } else {
+    }
+    else {
         qWarning(jtConfigurator) << "Settings : Can't load Jamtaba 2 config file:"
                                  << configFile.errorString();
     }
@@ -882,43 +1121,55 @@ bool Settings::readFile(const QList<SettingsObject *> &sections)
 
 void Settings::setLooperPreferredLayersCount(quint8 layersCount)
 {
+    qCDebug(jtSettings) << "Settings setLooperPreferredLayersCount: from " << looperSettings.preferredLayersCount << " to " << layersCount;
     looperSettings.preferredLayersCount = layersCount <= 8 ? layersCount : 8;
 }
 
 void Settings::setLooperAudioEncodingFlag(bool encodeAudioWhenSaving)
 {
+    qCDebug(jtSettings) << "Settings setLooperAudioEncodingFlag: from " << looperSettings.encodingAudioWhenSaving << " to " << encodeAudioWhenSaving;
     looperSettings.encodingAudioWhenSaving = encodeAudioWhenSaving;
 }
 
 void Settings::setLooperPreferredMode(quint8 looperMode)
 {
+    qCDebug(jtSettings) << "Settings setLooperPreferredMode: from " << looperSettings.preferredMode << " to " << looperMode;
     looperSettings.preferredMode = looperMode;
 }
 
-bool Settings::writeFile(const QList<SettingsObject *> &sections)// io ops ...
+bool Settings::writeFile(const QList<SettingsObject *> &sections) // io ops ...
 {
+    qCDebug(jtSettings) << "Settings writeFile...";
     QDir configFileDir = Configurator::getInstance()->getBaseDir();
     QFile file(configFileDir.absoluteFilePath(fileName));
     if (file.open(QIODevice::WriteOnly)) {
         QJsonObject root;
 
         // writing global settings
-        root["userName"] = lastUserName;// write user name
-        root["translation"] = translation;// write translate locale
+        root["userName"] = lastUserName; // write user name
+        root["translation"] = translation; // write translate locale
         root["theme"] = theme;
         root["intervalProgressShape"] = ninjamIntervalProgressShape;
         root["tracksLayoutOrientation"] = tracksLayoutOrientation;
         root["usingNarrowTracks"] = usingNarrowedTracks;
         root["masterGain"] = masterFaderGain;
+        root["intervalsBeforeInactivityWarning"] = static_cast<int>(intervalsBeforeInactivityWarning);
+        root["chatFontSizeOffset"] = static_cast<int>(chatFontSizeOffset);
+        root["publicChatActivated"] = publicChatIsActivated();
+
+        if (!recentEmojis.isEmpty()) {
+            root["recentEmojis"] = QJsonArray::fromStringList(recentEmojis);
+        }
 
         // write settings sections
-        foreach (SettingsObject *so, sections) {
+        for (SettingsObject *so : sections) {
             QJsonObject sectionObject;
             so->write(sectionObject);
             root[so->getName()] = sectionObject;
         }
         QJsonDocument doc(root);
         file.write(doc.toJson());
+        qCDebug(jtCore) << "Settings writeFile: " << doc;
         return true;
     } else {
         qCritical() << file.errorString();
@@ -929,17 +1180,19 @@ bool Settings::writeFile(const QList<SettingsObject *> &sections)// io ops ...
 // PRESETS
 bool Settings::writePresetToFile(const Preset &preset)
 {
+    qCDebug(jtSettings) << "Settings writePresetToFile...";
     QString absolutePath = Configurator::getInstance()->getPresetPath(preset.name);
     QFile file(absolutePath);
     if (file.open(QIODevice::WriteOnly)) {
         QJsonObject inputTracksJsonObject;
-        preset.inputTrackSettings.write(inputTracksJsonObject);// write the channels and subchannels in the json object
+        preset.inputTrackSettings.write(inputTracksJsonObject); // write the channels and subchannels in the json object
 
         QJsonObject root;
         root[preset.name] = inputTracksJsonObject;
 
         QJsonDocument doc(root);
         file.write(doc.toJson());
+        qCDebug(jtSettings) << "Settings writePresetToFile: " << doc;
         return true;
     } else {
         qCritical() << file.errorString();
@@ -952,11 +1205,13 @@ Preset::Preset(const QString &name, const LocalInputTrackSettings &inputSettings
     name(name),
     inputTrackSettings(inputSettings)
 {
+    qCDebug(jtSettings) << "Preset ctor";
 }
 
 // ++++++++++++++
 Preset Settings::readPresetFromFile(const QString &presetFileName, bool allowMultiSubchannels)
 {
+    qCDebug(jtSettings) << "Preset readPresetFromFile";
     QString absolutePath = Configurator::getInstance()->getPresetPath(presetFileName);
     QFile presetFile(absolutePath);
     if (presetFile.open(QIODevice::ReadOnly)) {
@@ -973,13 +1228,15 @@ Preset Settings::readPresetFromFile(const QString &presetFileName, bool allowMul
         qWarning(jtConfigurator) << "Settings : Can't load PRESET file:"
                                  << presetFile.errorString();
     }
-    return Preset();// returning an empty/invalid preset
+    return Preset(); // returning an empty/invalid preset
 }
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 void Settings::load()
 {
-    QList<Persistence::SettingsObject *> sections;
+    qCDebug(jtSettings) << "Settings load";
+    QList<persistence::SettingsObject *> sections;
     sections.append(&audioSettings);
     sections.append(&midiSettings);
     sections.append(&windowSettings);
@@ -993,6 +1250,8 @@ void Settings::load()
     sections.append(&privateServerSettings);
     sections.append(&meteringSettings);
     sections.append(&looperSettings);
+    sections.append(&rememberSettings);
+    sections.append(&collapseSettings);
 
     readFile(sections);
 }
@@ -1000,16 +1259,23 @@ void Settings::load()
 Settings::Settings() :
     tracksLayoutOrientation(Qt::Vertical),
     masterFaderGain(1.0),
-    translation("en"), //english as default language
-    theme("Flat") //flat as default theme
+    translation("en"), // english as default language
+    theme("Navy_nm"), // flat as default theme,
+    ninjamIntervalProgressShape(0),
+    usingNarrowedTracks(false),
+    intervalsBeforeInactivityWarning(5), // 5 intervals by default,
+    chatFontSizeOffset(0),
+    publicChatActivated(true)
 {
+    qCDebug(jtSettings) << "Settings ctor";
     // qDebug() << "Settings in " << fileDir;
 }
 
 void Settings::save(const LocalInputTrackSettings &localInputsSettings)
 {
+    qCDebug(jtSettings) << "Settings save";
     this->inputsSettings = localInputsSettings;
-    QList<Persistence::SettingsObject *> sections;
+    QList<persistence::SettingsObject *> sections;
     sections.append(&audioSettings);
     sections.append(&midiSettings);
     sections.append(&windowSettings);
@@ -1023,21 +1289,26 @@ void Settings::save(const LocalInputTrackSettings &localInputsSettings)
     sections.append(&privateServerSettings);
     sections.append(&meteringSettings);
     sections.append(&looperSettings);
+    sections.append(&rememberSettings);
+    sections.append(&collapseSettings);
 
     writeFile(sections);
 }
 
 void Settings::deletePreset(const QString &name)
 {
+    qCDebug(jtSettings) << "Settings deletePreset " << name;
     Configurator::getInstance()->deletePreset(name);
 }
 
 Settings::~Settings()
 {
+    // qCDebug(jtSettings) << "Settings destructor";
 }
 
 void Settings::setTheme(const QString theme)
 {
+    qCDebug(jtSettings) << "Settings setTheme: from " << this->theme << " to " << theme;
     this->theme = theme;
 }
 
@@ -1045,20 +1316,44 @@ void Settings::setTheme(const QString theme)
 
 QString Settings::getTranslation() const
 {
+    // qCDebug(jtSettings) << "Settings getTranslation";
     return translation;
 }
 
+void Settings::setRemoteUserRememberingSettings(bool boost, bool level, bool pan, bool mute, bool lowCut)
+{
+    qCDebug(jtSettings) << "Settings setRemoteUserRememberingSettings: boost from " << rememberSettings.rememberBoost << " to " << boost
+                        << "; level from " << rememberSettings.rememberLevel << " to " << level
+                        << "; pan from " << rememberSettings.rememberPan << " to " << pan
+                        << "; mute from " << rememberSettings.rememberMute << " to " << mute
+                        << "; lowCut from " << rememberSettings.rememberLowCut << " to " << lowCut;
+    rememberSettings.rememberBoost   = boost;
+    rememberSettings.rememberLevel   = level;
+    rememberSettings.rememberPan     = pan;
+    rememberSettings.rememberLowCut  = lowCut;
+    rememberSettings.rememberMute    = mute;
+}
+
+void Settings::setCollapsileSectionsRememberingSettings(bool localChannels, bool bottomSection, bool chatSection)
+{
+    qCDebug(jtSettings) << "Settings setCollapsileSectionsRememberingSettings: localChannels from " << rememberSettings.rememberLocalChannels << " to " << localChannels
+                        << "; bottomSection from " << rememberSettings.rememberBottomSection << " to " << bottomSection
+                        << "; chatSection from " << rememberSettings.rememberChatSection << " to " << chatSection;
+    rememberSettings.rememberLocalChannels = localChannels;
+    rememberSettings.rememberBottomSection = bottomSection;
+    rememberSettings.rememberChatSection = chatSection;
+}
 
 //__________________________________________________________
 
-MeteringSettings::MeteringSettings()
-    : SettingsObject(QStringLiteral("Metering")),
-      showingMaxPeakMarkers(true),
-      meterOption(0), // showing RMS + Peaks
-      waveDrawingMode(3), // pixeled buildings
-      refreshRate(30)
+MeteringSettings::MeteringSettings() :
+    SettingsObject(QStringLiteral("Metering")),
+    showingMaxPeakMarkers(true),
+    meterOption(0), // showing RMS + Peaks
+    waveDrawingMode(3), // pixeled buildings
+    refreshRate(30)
 {
-
+    qCDebug(jtSettings) << "MeteringSettings ctor";
 }
 
 void MeteringSettings::read(const QJsonObject &in)
@@ -1067,12 +1362,69 @@ void MeteringSettings::read(const QJsonObject &in)
     this->meterOption = getValueFromJson(in, "meterOption", quint8(0));
     this->refreshRate = getValueFromJson(in, "refreshRate", quint8(30));
     this->waveDrawingMode = getValueFromJson(in, "waveDrawingMode", quint8(3)); // using 3 (pixeleted buildings) as default value
+
+    qCDebug(jtSettings) << "MeteringSettings: showingMaxPeakMarkers " << showingMaxPeakMarkers
+                        << "; meterOption " << meterOption
+                        << "; refreshRate " << refreshRate
+                        << "; waveDrawingMode " << waveDrawingMode;
 }
 
 void MeteringSettings::write(QJsonObject &out) const
 {
+    qCDebug(jtSettings) << "MeteringSettings write";
     out["showMaxPeak"]      = showingMaxPeakMarkers;
     out["meterOption"]      = meterOption;
     out["refreshRate"]      = refreshRate;
     out["waveDrawingMode"]  = waveDrawingMode;
+}
+
+//________________________________________________________________
+
+RememberSettings::RememberSettings() :
+    SettingsObject(QStringLiteral("Remember")),
+    rememberBoost(true),
+    rememberLevel(true),
+    rememberPan(true),
+    rememberMute(true),
+    rememberLowCut(true),
+    rememberLocalChannels(true),
+    rememberBottomSection(true),
+    rememberChatSection(true)
+{
+    qCDebug(jtSettings) << "RememberSettings ctor";
+}
+
+void RememberSettings::write(QJsonObject &out) const
+{
+    qCDebug(jtSettings) << "RememberSettings write";
+    out["boost"] = rememberBoost;
+    out["level"] = rememberLevel;
+    out["pan"] = rememberPan;
+    out["mute"] = rememberMute;
+    out["lowCut"] = rememberLowCut;
+
+    out["localChannels"] = rememberLocalChannels;
+    out["bottomSection"] = rememberBottomSection;
+    out["chatSection"] = rememberChatSection;
+}
+
+void RememberSettings::read(const QJsonObject &in)
+{
+    rememberBoost = getValueFromJson(in, "boost", true);
+    rememberLevel = getValueFromJson(in, "level", true);
+    rememberPan = getValueFromJson(in, "pan", true);
+    rememberMute = getValueFromJson(in, "mute", true);
+    rememberLowCut = getValueFromJson(in, "lowCut", true);
+
+    rememberLocalChannels = getValueFromJson(in, "localChannels", true);
+    rememberBottomSection = getValueFromJson(in, "bottomSection", false);
+    rememberChatSection = getValueFromJson(in, "chatSection", false);
+
+    qCDebug(jtSettings) << "RememberSettings: rememberBoost " << rememberBoost
+                        << "; rememberLevel " << rememberLevel
+                        << "; rememberPan " << rememberPan
+                        << "; rememberMute " << rememberMute
+                        << "; rememberLocalChannels " << rememberLocalChannels
+                        << "; rememberBottomSection " << rememberBottomSection
+                        << "; rememberChatSection " << rememberChatSection;
 }

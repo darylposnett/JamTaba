@@ -1,27 +1,37 @@
 #ifndef MAINFRAMEVST_H
 #define MAINFRAMEVST_H
 
-#include "MainWindow.h"
-#include "LocalTrackGroupViewStandalone.h"
-#include "LocalTrackViewStandalone.h"
-#include "MainControllerStandalone.h"
-#include "PluginScanDialog.h"
+#include "gui/MainWindow.h"
+#include "LocalTrackGroupViewStandalone.h" // necessary to return covariant type
 
-using namespace Controller;
+namespace controller
+{
+    class MainControllerStandalone;
+}
+
+class LocalTrackView;
+class LocalTrackViewStandalone;
+class PluginScanDialog;
+
+using controller::MainControllerStandalone;
+using controller::MainController;
+using persistence::SubChannel;
 
 class MainWindowStandalone : public MainWindow
 {
     Q_OBJECT
 public:
-    MainWindowStandalone(MainControllerStandalone *controller);
+    explicit MainWindowStandalone(MainControllerStandalone *controller);
 
-    Persistence::LocalInputTrackSettings getInputsSettings() const override;
+    persistence::LocalInputTrackSettings getInputsSettings() const override;
 
-    void addChannelsGroup(const QString &groupName) override;
+    void addChannelsGroup(int instrumentIndex) override;
 
     void refreshTrackInputSelection(int inputTrackIndex);
 
-    MainControllerStandalone * getMainController() override
+    void initialize() override;
+
+    MainControllerStandalone *getMainController() const override
     {
         return controller;
     }
@@ -31,21 +41,19 @@ protected:
 
     TextEditorModifier *createTextEditorModifier() override;
 
-    NinjamRoomWindow *createNinjamWindow(const Login::RoomInfo &, MainController *) override;
+    NinjamRoomWindow *createNinjamWindow(const login::RoomInfo &, MainController *) override;
 
     LocalTrackGroupViewStandalone *createLocalTrackGroupView(int channelGroupIndex) override;
 
-    void initializeLocalSubChannel(LocalTrackView *subChannelView, const Persistence::Subchannel &subChannel) override;
+    void initializeLocalSubChannel(LocalTrackView *subChannelView, const SubChannel &subChannel) override;
 
-    void restoreLocalSubchannelPluginsList(LocalTrackViewStandalone *subChannelView, const Persistence::Subchannel &subChannel);
+    void restoreLocalSubchannelPluginsList(LocalTrackViewStandalone *subChannelView, const SubChannel &subChannel);
 
     PreferencesDialog *createPreferencesDialog() override;
 
-protected slots: //TODO change to private slots?
-    void handleServerConnectionError(const QString &msg);
+protected slots: // TODO change to private slots?
 
-    void setGlobalPreferences(const QList<bool> &, int audioDevice, int firstIn, int lastIn, int firstOut,
-                              int lastOut);
+    void setGlobalPreferences(const QList<bool> &, QString audioInputDevice, QString audioOutputDevice, int firstIn, int lastIn, int firstOut, int lastOut);
 
     // plugin finder
     void showPluginScanDialog();
@@ -61,9 +69,11 @@ private slots:
     void closePluginScanDialog();
     void restartAudioAndMidi();
 
+    void tryClose(); // called when ESC is pressed
+
 private:
     MainControllerStandalone *controller;
-    QScopedPointer<PluginScanDialog> pluginScanDialog;
+    PluginScanDialog *pluginScanDialog;
 
     PreferencesDialog *preferencesDialog; // store the instance to check if dialog is visible e decide show or not the Vst Plugin Scan Dialog
 
@@ -71,7 +81,7 @@ private:
 
     bool midiDeviceIsValid(int deviceIndex) const;
 
-    void sanitizeSubchannelInputSelections(LocalTrackView *subChannelView, const Persistence::Subchannel &subChannel);
+    void sanitizeSubchannelInputSelections(LocalTrackView *subChannelView, const persistence::SubChannel &subChannel);
 
     bool fullScreenViewMode;
 
@@ -85,6 +95,9 @@ private:
 
     void initializePluginFinder();
 
+    // standalone settings persistency management
+    void readWindowSettings(bool isWindowMaximized);
+    void writeWindowSettings();
 };
 
 #endif // MAINFRAMEVST_H

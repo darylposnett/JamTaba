@@ -5,31 +5,29 @@
 --------------------------------*/
 
 #soloButton,
-#muteButton
+#muteButton,
+BoostSpinBox
 {
     font-size: 9px;
     border-color: rgb(110,110,110);
-    padding: 2px;
+    /*padding: 2px;*/
     color: rgb(50,50,50);
 }
 
-#buttonBoost,
 #soloButton,
-#muteButton
+#muteButton,
+BoostSpinBox
 {
     background: rgb(235, 235, 235);
 }
 
-
-#buttonBoost
+BoostSpinBox
 {
-   padding: 1px;
-   padding-top: 3px;
-   padding-bottom: 3px;
-   border-radius: 1px;
+    border-style: outset;
+    border-width: 1px;
+    /*max-width: 16px;*/
 }
 
-#buttonBoost:checked,
 QPushButton#buttonStereoInversion:checked
 {
     background-color: rgb(200, 200, 200);
@@ -37,32 +35,17 @@ QPushButton#buttonStereoInversion:checked
     border-radius: 0px;
 }
 
-#soloButton:hover,
 #muteButton:hover
 {
     color: black;
 }
 
-#buttonBoost:hover:checked
-{
-    background-color: rgb(200, 200, 200);
-    color: rgba(0, 0, 0, 160);
-    border-radius: 0px;
-}
-
-#buttonBoost:checked
-{
-    border-bottom: none;
-    border-top: none;
-    border-style: solid;
-    border-color: rgba(0, 0, 0, 60);
-}
 
 /* button colors when the track is NOT xmiting */
-BaseTrackView[unlighted="true"] #buttonBoost,
 BaseTrackView[unlighted="true"] #soloButton,
 BaseTrackView[unlighted="true"] #muteButton,
-BaseTrackView[unlighted="true"] QPushButton#buttonStereoInversion
+BaseTrackView[unlighted="true"] QPushButton#buttonStereoInversion,
+BaseTrackView[unlighted="true"] BoostSpinBox
 {
     background-color: rgba(0, 0, 0, 30);
     border: none;
@@ -73,8 +56,7 @@ BaseTrackView[unlighted="true"] QPushButton#buttonStereoInversion:hover:checked
     background-color: rgb(200, 200, 200);
 }
 
-BaseTrackView[unlighted="true"] #soloButton:checked,
-BaseTrackView[unlighted="true"] #buttonBoost:checked
+BaseTrackView[unlighted="true"] #soloButton:checked
 {
     color: white;
 }
@@ -112,11 +94,11 @@ BaseTrackView[unlighted="true"] #buttonStereoInversion:hover:checked
 
 BaseTrackView
 {
-    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-        stop:0 rgb(240, 240, 240),
-        stop:1 rgb(160, 160, 160));
+    background: none;
 
     border: none; /*1px solid rgb(61, 61, 61);*/
+    border-right: 1px solid rgba(0, 0, 0, 20);
+    border-left: 1px solid rgba(0, 0, 0, 20);
     font-size: 8px;
 }
 
@@ -129,7 +111,7 @@ BaseTrackView[unlighted="true"] QSlider::handle:vertical,    /* track fader hand
 #panSlider::handle:disabled,
 QSlider::handle:vertical:disabled
 {
-    background: rgb(180, 180, 180);
+    background: rgba(180, 180, 180, 200);
 }
 
 BaseTrackView[unlighted="true"],                            /* the track */
@@ -145,13 +127,15 @@ TrackGroupView[unlighted="true"] > #topPanel                /* the track group t
     width: 7px;
 }
 
-AudioMeter
-{
-    qproperty-dBMarksColor: rgb(70, 70, 70);
-}
-
 /* TrackGroup - used as container for subchannels
 ---------------------------------------------------*/
+
+TrackGroupView
+{
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+            stop:0 rgb(240, 240, 240),
+            stop:1 rgb(160, 160, 160));
+}
 
 TrackGroupView #topPanel                                /* topPanel is used to show channel name */
 {

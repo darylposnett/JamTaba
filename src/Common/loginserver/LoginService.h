@@ -4,125 +4,142 @@
 #include <QObject>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
-#include "ninjam/Server.h"
+#include "ninjam/client/ServerInfo.h"
 
 class NatMap;
 class QTimer;
 
-namespace Login {
+namespace login {
+
+struct Location {
+    float latitude = 0;
+    float longitude = 0;
+    QString countryName;
+    QString countryCode;
+};
+
 class UserInfo
 {
+
 public:
-    UserInfo(long long id, const QString &name, const QString &ip);
-
-    inline QString getIp() const
-    {
-        return ip;
-    }
-
-    inline QString getName() const
-    {
-        return name;
-    }
+    UserInfo(const QString &name, const QString &ip, const QString &countryName, const QString &countryCode, float latitude, float longitude);
+    inline QString getIp() const { return ip; }
+    inline QString getName() const { return name; }
+    inline Location getLocation() const { return location; }
 
 private:
-    long long id;
     QString name;
     QString ip;
+    Location location;
 };
+
 // +++++++++++++++++++++++++++++++++++++++++++++++++++
+
 enum class RoomTYPE {
     NINJAM, REALTIME
 };
 
+
 class RoomInfo
 {
+
 public:
-    RoomInfo(long long id, const QString &roomName, int roomPort, RoomTYPE roomType, int maxUsers,
+    RoomInfo(const QString &roomName, int roomPort, int maxUsers,
              const QList<UserInfo> &users, int maxChannels, int bpi, int bpm, const QString &streamUrl);
 
-    RoomInfo(const QString &roomName, int roomPort, RoomTYPE roomType, int maxUsers, int maxChannels = 0);
+    RoomInfo(const QString &roomName, int roomPort, int maxUsers, int maxChannels = 0);
 
-    ~RoomInfo()
-    {
-    }
-
-    inline QString getName() const
-    {
-        return name;
-    }
-
-    inline RoomTYPE getType() const
-    {
-        return type;
-    }
+    QString getName() const;
 
     bool isEmpty() const;
-    inline bool isFull() const
-    {
-        return users.size() >= maxUsers;
-    }
+    bool isFull() const;
 
-    inline int getPort() const
-    {
-        return port;
-    }
+    int getPort() const;
 
-    inline QList<UserInfo> getUsers() const
-    {
-        return users;
-    }
+    QList<UserInfo> getUsers() const;
 
-    inline bool hasStream() const
-    {
-        return !streamUrl.isEmpty();
-    }
+    bool hasStream() const;
+    QString getStreamUrl() const;
 
-    inline long long getID() const
-    {
-        return id;
-    }
-
-    inline QString getStreamUrl() const
-    {
-        return streamUrl;
-    }
-
-    inline int getMaxChannels() const
-    {
-        return maxChannels;
-    }
+    int getMaxChannels() const;
 
     int getNonBotUsersCount() const;
-    inline int getMaxUsers() const
-    {
-        return maxUsers;
-    }
+    int getMaxUsers() const;
 
-    inline int getBpm() const
-    {
-        return bpm;
-    }
+    int getBpm() const;
+    int getBpi() const;
 
-    inline int getBpi() const
-    {
-        return bpi;
-    }
+    QString getUniqueName() const;
 
 protected:
-    long long id;
+
     QString name;
+
     int port;
-    RoomTYPE type;
+
     int maxUsers;
     int maxChannels;
+
     QList<UserInfo> users;
+
     QString streamUrl;
+
     int bpi;
     int bpm;
 };
 
+inline bool RoomInfo::isFull() const
+{
+    return users.size() >= maxUsers;
+}
+
+inline int RoomInfo::getPort() const
+{
+    return port;
+}
+
+inline QList<UserInfo> RoomInfo::getUsers() const
+{
+    return users;
+}
+
+inline bool RoomInfo::hasStream() const
+{
+    return !streamUrl.isEmpty();
+}
+
+inline QString RoomInfo::getStreamUrl() const
+{
+    return streamUrl;
+}
+
+inline int RoomInfo::getMaxChannels() const
+{
+    return maxChannels;
+}
+
+inline int RoomInfo::getMaxUsers() const
+{
+    return maxUsers;
+}
+
+inline int RoomInfo::getBpm() const
+{
+    return bpm;
+}
+
+inline int RoomInfo::getBpi() const
+{
+    return bpi;
+}
+
+inline QString RoomInfo::getName() const
+{
+    return name;
+}
+
 // +++++++++++++++++++++++++++++++++++++++++++++++++++
+
 class LoginService : public QObject
 {
     Q_OBJECT
@@ -130,57 +147,28 @@ class LoginService : public QObject
 public:
 
     explicit LoginService(QObject *parent = 0);
-    virtual ~LoginService();
-    virtual void connectInServer(const QString &userName, int instrumentID, const QString &channelName,
-                                 const NatMap &localPeerMap, const QString &version, const QString &environment,
-                                 int sampleRate);
-    virtual void disconnectFromServer();
-    inline bool isConnected() const
-    {
-        return connected;
-    }
-
-    QString getChordProgressionFor(const Login::RoomInfo &roomInfo) const;
-    void sendChordProgressionToServer(const QString &userName,
-                                      const QString serverName,
-                                      quint32 serverPort,
-                                      const QString &chordProgression);
+    //virtual ~LoginService();
 
 signals:
-    void roomsListAvailable(const QList<Login::RoomInfo> &publicRooms);
-    void incompatibilityWithServerDetected();
-    void newVersionAvailableForDownload();
-    void errorWhenConnectingToServer(const QString &error);
+    void roomsListAvailable(const QList<login::RoomInfo> &publicRooms);
+    void newVersionAvailableForDownload(const QString &newVersion, const QString &publicationDate, const QString &versionDetails);
+
 private:
 
-    enum Command {
-        CONNECT, DISCONNECT, REFRESH_ROOMS_LIST
-    };
+    QNetworkAccessManager httpClient;
+    static const QString LOGIN_SERVER_URL;
+    static const QString VERSION_SERVER_URL;
 
-    QNetworkAccessManager *httpClient;
-    QNetworkReply *pendingReply;
-    QNetworkReply *sendCommandToServer(const QUrlQuery &, bool synchronous = false);
-    static const QString SERVER;
-    bool connected;
-    void handleJson(const QString &json);
-
-    RoomInfo buildRoomInfoFromJson(const QJsonObject &json);
-
-    static const int REFRESH_PERIOD = 30000;
+    static const int REFRESH_PERIOD = 60000;
     QTimer *refreshTimer;
 
-    QMap<QString, QString> lastChordProgressions;
-    static QString getRoomInfoUniqueName(const Login::RoomInfo &roomInfo);
+    void handleJson(const QString &json);
+    void handleServersJson(const QJsonObject &root);
+    void handleVersionJson(const QJsonObject &root);
 
-private slots:
-    void connectedSlot();
-    void roomsListReceivedSlot();
-
-    void errorSlot(QNetworkReply::NetworkError error);
-    void connectNetworkReplySlots(QNetworkReply *reply, Command command);
-
-    void refreshTimerSlot();
+    RoomInfo buildRoomInfoFromJson(const QJsonObject &json);
 };
-}
+
+} // namespace
 
 #endif

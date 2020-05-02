@@ -4,32 +4,37 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QUrlQuery>
+#include <QNetworkAccessManager>
 #include <QTimer>
 #include <QDebug>
 #include <QApplication>
-#include "ninjam/Server.h"
-#include "ninjam/Service.h"
+#include "ninjam/client/ServerInfo.h"
+#include "ninjam/client/Service.h"
 #include "log/Logging.h"
+#include "Configurator.h" // just to use VERSION
+#include "Version.h"
 
-using namespace Login;
+using login::LoginService;
+using login::UserInfo;
+using login::RoomInfo;
 
-const QString LoginService::SERVER = "http://jamtaba2.appspot.com/vs";
-// const QString LoginService::SERVER = "http://localhost:8080/vs";
+const QString LoginService::LOGIN_SERVER_URL = "http://ninbot.com/app/servers.php";
+const QString LoginService::VERSION_SERVER_URL = "http://jamtaba2.appspot.com/version";
 
-// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-UserInfo::UserInfo(long long id, const QString &name, const QString &ip) :
-    id(id),
+UserInfo::UserInfo(const QString &name, const QString &ip, const QString &countryName, const QString &countryCode, float latitude, float longitude) :
     name(name),
     ip(ip)
 {
+    location.latitude = latitude;
+    location.longitude = longitude;
+    location.countryCode = countryCode;
+    location.countryName = countryName;
 }
 
-RoomInfo::RoomInfo(long long id, const QString &roomName, int roomPort, RoomTYPE roomType,
+RoomInfo::RoomInfo(const QString &roomName, int roomPort,
                    int maxUsers, const QList<UserInfo> &users, int maxChannels, int bpi, int bpm, const QString &streamUrl) :
-    id(id),
     name(roomName),
     port(roomPort),
-    type(roomType),
     maxUsers(maxUsers),
     maxChannels(maxChannels),
     users(users),
@@ -37,41 +42,26 @@ RoomInfo::RoomInfo(long long id, const QString &roomName, int roomPort, RoomTYPE
     bpm(bpm),
     streamUrl(streamUrl)
 {
+    //
 }
 
-// RoomInfo::RoomInfo(long long id, QString roomName, int roomPort, RoomTYPE roomType, int maxUsers, QList<UserInfo> users, int maxChannels, QString streamUrl)
-// :id(id), name(roomName), port(roomPort), type(roomType) , maxUsers(maxUsers), maxChannels(maxChannels),
-// users(users), bpi(0), bpm(0), streamUrl(streamUrl)
-// {
-
-// }
-
-RoomInfo::RoomInfo(const QString &roomName, int roomPort, RoomTYPE roomType, int maxUsers,
-                   int maxChannels) :
-    id(-1000),
-    name(roomName),
-    port(roomPort),
-    type(roomType),
-    maxUsers(maxUsers),
-    maxChannels(maxChannels),
-    users(QList<Login::UserInfo>()),
-    bpi(0),
-    bpm(0),
-    streamUrl("")
+RoomInfo::RoomInfo(const QString &roomName, int roomPort, int maxUsers, int maxChannels) :
+    RoomInfo(roomName, roomPort, maxUsers, QList<login::UserInfo>(), maxChannels, 0, 0, "")
 {
+        //
 }
 
-// RoomInfo::RoomInfo(const RoomInfo &other)
-// :id(other.id), name(other.name), port(other.port), type(other.type),
-// maxUsers(other.maxUsers), maxChannels(other.maxChannels), users(other.users), streamUrl(other.streamUrl){
-
-// }
+QString RoomInfo::getUniqueName() const {
+    return QString("%1:%2")
+            .arg(getName())
+            .arg(QString::number(getPort()));
+}
 
 int RoomInfo::getNonBotUsersCount() const
 {
     int nonBots = 0;
-    foreach (const UserInfo &userInfo, users) {
-        if (!Ninjam::Service::isBotName(userInfo.getName()))
+    for (const UserInfo &userInfo : users) {
+        if (!ninjam::client::Service::isBotName(userInfo.getName()))
             nonBots++;
     }
     return nonBots;
@@ -82,307 +72,125 @@ bool RoomInfo::isEmpty() const
     return getNonBotUsersCount() == 0;
 }
 
-// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-class HttpParamsFactory
-{
-public:
-    static QUrlQuery createParametersToConnect(QString userName, int instrumentID,
-                                               QString channelName, NatMap localPeerMap,
-                                               QString version, QString environment, int sampleRate)
-    {
-        QUrlQuery query;
-        query.addQueryItem("cmd", "CONNECT");
-        query.addQueryItem("userName", userName);
-        query.addQueryItem("instrumentID", QString::number(instrumentID));// used in real time rooms
-        query.addQueryItem("channelName", channelName);// use in real time room, need update to allow more channels
-        query.addQueryItem("publicIp", localPeerMap.getPublicIp());// used in real time rooms
-        query.addQueryItem("publicPort", QString::number(localPeerMap.getPublicPort())); // real time rooms only
-        query.addQueryItem("environment", environment);
-        query.addQueryItem("version", version);
-        query.addQueryItem("sampleRate", QString::number(sampleRate));
-        return query;
-    }
-
-    static QUrlQuery createParametersToUpdateLastChordProgression(QString userName,
-                                               QString serverName, quint32 serverPort, QString chordsProgression)
-    {
-        QUrlQuery query;
-        query.addQueryItem("cmd", "UPDATE_CHORDS");
-        query.addQueryItem("userName", userName);
-        query.addQueryItem("serverName", serverName);
-        query.addQueryItem("serverPort", QString::number(serverPort));
-        query.addQueryItem("chords", chordsProgression);
-        return query;
-    }
-
-    static QUrlQuery createParametersToDisconnect()
-    {
-        QUrlQuery query;
-        query.addQueryItem("cmd", "DISCONNECT");
-        return query;
-    }
-
-    static QUrlQuery createParametersToRefreshRoomsList()
-    {
-        QUrlQuery query;
-        query.addQueryItem("cmd", "KEEP_ALIVE");
-        return query;
-    }
-};
-
 // +++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 LoginService::LoginService(QObject *parent) :
     QObject(parent),
-    httpClient(new QNetworkAccessManager(this)),
-    pendingReply(nullptr),
-    connected(false),
+    httpClient(this),
     refreshTimer(new QTimer(this))
 {
-    QObject::connect(refreshTimer, SIGNAL(timeout()), this, SLOT(refreshTimerSlot()));
-    // QObject::connect(&httpClient, SIGNAL(sslErrors(QNetworkReply*,QList<QSslError>)), this, SLOT(sslErrorsSlot(QNetworkReply*,QList<QSslError>)));
-}
+    connect(refreshTimer, &QTimer::timeout, this, [=](){
+        httpClient.get(QNetworkRequest(QUrl(LOGIN_SERVER_URL)));
+    });
 
-LoginService::~LoginService()
-{
-    // disconnect();
-    qCDebug(jtLoginService) << "LoginService Destructor";
-    if (pendingReply)
-        pendingReply->deleteLater();
-}
+    connect(&httpClient, &QNetworkAccessManager::finished, [=](QNetworkReply *reply){
+        handleJson(reply->readAll());
+    });
 
-void LoginService::connectInServer(const QString &userName, int instrumentID,
-                                   const QString &channelName, const NatMap &localPeerMap,
-                                   const QString &version, const QString &environment, int sampleRate)
-{
-    QUrlQuery query = HttpParamsFactory::createParametersToConnect(userName, instrumentID,
-                                                                   channelName, localPeerMap,
-                                                                   version, environment,
-                                                                   sampleRate);
-    qCDebug(jtLoginService) << "Connecting in server ...";
-    pendingReply = sendCommandToServer(query);
-    if (pendingReply) {
-        qDebug(jtLoginService) << "Waiting for server reply...";
-        connectNetworkReplySlots(pendingReply, LoginService::Command::CONNECT);
-    } else {
-        qCritical(jtLoginService) << "Pending reply is null!";
-    }
-}
-
-void LoginService::refreshTimerSlot()
-{
-    QUrlQuery query = HttpParamsFactory::createParametersToRefreshRoomsList();
-    pendingReply = sendCommandToServer(query);
-    if (pendingReply)
-        connectNetworkReplySlots(pendingReply, LoginService::Command::REFRESH_ROOMS_LIST);
-}
-
-void LoginService::disconnectFromServer()
-{
-    if (isConnected()) {
-        qDebug(jtLoginService) << "DISCONNECTING from server...";
-        refreshTimer->stop();
-        if (pendingReply)
-            pendingReply->deleteLater();
-        QUrlQuery query = HttpParamsFactory::createParametersToDisconnect();
-        qDebug(jtLoginService) << "sending disconnect command to server...";
-        pendingReply = sendCommandToServer(query, true);
-        qDebug(jtLoginService) << "disconnected";
-        if (pendingReply) {
-            pendingReply->readAll();
-            pendingReply->deleteLater();
-            qDebug(jtLoginService) << "reply content readed and discarded!";
-            // delete pendingReply;
-            // qWarning() << "reply deleted!";
-        }
-    }
-    this->connected = false;
-
-    qDebug(jtLoginService) << "disconnected from login server!";
-}
-
-QNetworkReply *LoginService::sendCommandToServer(const QUrlQuery &query, bool synchronous)
-{
-    if (pendingReply) {
-        pendingReply->deleteLater();
-    }
-
-    QUrl url(SERVER);
-    QByteArray postData(query.toString(QUrl::EncodeUnicode).toStdString().c_str());
-    QNetworkRequest request(url);
-    request.setAttribute(QNetworkRequest::CacheLoadControlAttribute, QNetworkRequest::AlwaysNetwork);// disable cache
-    request.setHeader(QNetworkRequest::ContentTypeHeader,
-                      QStringLiteral("application/x-www-form-urlencoded; charset=utf-8"));
-    pendingReply = httpClient->post(request, postData);
-    if (synchronous && pendingReply) {
-        QEventLoop loop;
-        connect(pendingReply, SIGNAL(finished()), &loop, SLOT(quit()));
-        loop.exec();
-    }
-    return pendingReply;
-}
-
-// void LoginService::sslErrorsSlot(QNetworkReply* reply, QList<QSslError> errors){
-// Q_UNUSED(errors);
-// reply->ignoreSslErrors();
-// }
-
-QString getNetworkErrorMsg(QNetworkReply::NetworkError error)
-{
-    switch (error) {
-    case QNetworkReply::ConnectionRefusedError:
-        return "Connection refused!";
-    case QNetworkReply::RemoteHostClosedError:
-        return "Remote host closed!";
-    case QNetworkReply::HostNotFoundError:
-        return "Host not found!";
-    case QNetworkReply::TimeoutError:
-        return "Time out!";
-    case QNetworkReply::OperationCanceledError:
-        return "Operation canceled!";
-    case QNetworkReply::SslHandshakeFailedError:
-        return "Ssl handshake failed!";
-    case QNetworkReply::TemporaryNetworkFailureError:
-        return "Temporary network failure!";
-    case QNetworkReply::NetworkSessionFailedError:
-        return "Network Session Failed";
-    case QNetworkReply::BackgroundRequestNotAllowedError:
-        return "background request not allowed!";
-    case QNetworkReply::UnknownNetworkError:
-        return "Unknown network error!";
-    default:
-        return "no error description!";
-    }
-}
-
-void LoginService::errorSlot(QNetworkReply::NetworkError error)
-{
-    QString errorMsg;
-    if (pendingReply)
-        errorMsg = pendingReply->errorString();
-    else
-        errorMsg = getNetworkErrorMsg(error);
-    emit errorWhenConnectingToServer(errorMsg);
-}
-
-void LoginService::connectNetworkReplySlots(QNetworkReply *reply, Command command)
-{
-    if (!reply)
-        return;
-    switch (command) {
-    case LoginService::Command::CONNECT:
-        QObject::connect(reply, SIGNAL(finished()), this, SLOT(connectedSlot()));
-        break;
-    // case LoginService::Command::DISCONNECT: QObject::connect(reply, SIGNAL(finished()), this, SLOT(disconnectedSlot()));  break;
-    case LoginService::Command::REFRESH_ROOMS_LIST:
-        QObject::connect(reply, SIGNAL(finished()), this, SLOT(roomsListReceivedSlot()));
-        break;
-    default:
-        break;
-    }
-
-    reply->connect(reply, SIGNAL(error(QNetworkReply::NetworkError)), this,
-                   SLOT(errorSlot(QNetworkReply::NetworkError)));
-    // reply->connect(reply, SIGNAL(sslErrors(QList<QSslError>)),  this, SLOT(sslErrorsSlot(QList<QSslError>)));
-}
-
-void LoginService::connectedSlot()
-{
-    // emit errorWhenConnectingToServer("teste");
-    qDebug(jtLoginService) << "CONNECTED in server!";
     refreshTimer->start(REFRESH_PERIOD);
-    roomsListReceivedSlot();
-    connected = true;
+
+    // the first public servers list query
+    httpClient.get(QNetworkRequest(QUrl(LOGIN_SERVER_URL)));
+
+    // query the current version to jamtaba server using HTTP (is querying github using HTTPS)
+    httpClient.get(QNetworkRequest(QUrl(VERSION_SERVER_URL)));
+
 }
 
-void LoginService::roomsListReceivedSlot()
+void LoginService::handleServersJson(const QJsonObject &root)
 {
-    QString json = QString(pendingReply->readAll());
-    handleJson(json);
+    QJsonArray allRooms = root["servers"].toArray();
+    QList<RoomInfo> publicRooms;
+    for (int i = 0; i < allRooms.size(); ++i) {
+        QJsonObject jsonObject = allRooms[i].toObject();
+        auto roomInfo = buildRoomInfoFromJson(jsonObject);
+        publicRooms.append(roomInfo);
+    }
+    emit roomsListAvailable(publicRooms);
+}
+void LoginService::handleVersionJson(const QJsonObject &root)
+{
+    auto versionTag = root.contains("version") ? root["version"].toString() : "error";
+    auto versionDetails = root.contains("details") ? root["details"].toString() : "error";
+    auto publicationDate = root.contains("published_at") ? root["published_at"].toString() : "";
+
+    auto currentVersion = loginserver::Version::fromString(VERSION);
+    auto latestVersion = loginserver::Version::fromString(versionTag);
+
+    if (latestVersion.isNewerThan(currentVersion))
+        emit newVersionAvailableForDownload(versionTag, publicationDate, versionDetails);
+
 }
 
 void LoginService::handleJson(const QString &json)
 {
     if (json.isEmpty())
         return;
-    QJsonDocument document = QJsonDocument::fromJson(QByteArray(json.toStdString().c_str()));
-    QJsonObject root = document.object();
-    if (!connected) {// first time handling json?
-        bool clientIsServerCompatible = root["clientCompatibility"].toBool();
-        bool newVersionAvailable = root["newVersionAvailable"].toBool();
 
-        if (!clientIsServerCompatible) {
-            refreshTimer->stop();
-            connected = false;
-            emit incompatibilityWithServerDetected();
-            return;
-        }
+    auto document = QJsonDocument::fromJson(QByteArray(json.toStdString().c_str()));
+    auto root = document.object();
 
-        if (newVersionAvailable)
-            emit newVersionAvailableForDownload();
+    if (root.contains("servers"))
+        handleServersJson(root);
+    else if (root.contains("version"))
+        handleVersionJson(root);
+}
+
+int getServerPort(const QString &serverName) {
+    auto port = 2049;
+    auto index = serverName.lastIndexOf(":");
+
+    if (index) {
+        return serverName.right(serverName.size() - (index + 1)).toInt();
     }
 
-    QJsonArray allRooms = root["rooms"].toArray();
-    QList<RoomInfo> publicRooms;
-    for (int i = 0; i < allRooms.size(); ++i) {
-        QJsonObject jsonObject = allRooms[i].toObject();
-        Login::RoomInfo roomInfo = buildRoomInfoFromJson(jsonObject);
-        publicRooms.append(roomInfo);
+    return port;
+}
 
-        QString lastChordProgression = "" ; //store an empty chord progression by default
-        if (jsonObject.contains("lastChordProgression"))
-            lastChordProgression = jsonObject["lastChordProgression"].toString();
-        QString key = getRoomInfoUniqueName(roomInfo);
-        lastChordProgressions.insert(key, lastChordProgression);
+QString getServerName(const QString &serverText) {
+    auto index = serverText.lastIndexOf(":");
+
+    if (index) {
+        return serverText.left(index);
     }
-    emit roomsListAvailable(publicRooms);
+
+    return serverText;
 }
 
-QString LoginService::getChordProgressionFor(const RoomInfo &roomInfo) const
-{
-    QString key = getRoomInfoUniqueName(roomInfo);
-    if (lastChordProgressions.contains(key))
-        return lastChordProgressions[key];
+int getServerGuessedMaxUsers(const QString &serverName, int serverPort) {
+    if (serverName.contains("discordonlinejammingcentral"))
+        return 10;
 
-    return ""; //no chord progression available for this roomInfo
-}
+    if (serverName.contains("ninbot") && serverPort == 2051)
+        return 16;
 
-void LoginService::sendChordProgressionToServer(const QString &userName,
-                                                const QString serverName,
-                                                quint32 serverPort,
-                                                const QString &chordProgression)
-{
-    QUrlQuery query = HttpParamsFactory::createParametersToUpdateLastChordProgression(userName, serverName, serverPort, chordProgression);
-    sendCommandToServer(query);
-}
+    if (serverName.contains("musicorner") || serverName.contains("cockos"))
+        return 4;
 
-QString LoginService::getRoomInfoUniqueName(const Login::RoomInfo &roomInfo)
-{
-    return roomInfo.getName() + ":" + roomInfo.getPort();
+    return 8;
 }
 
 RoomInfo LoginService::buildRoomInfoFromJson(const QJsonObject &jsonObject)
 {
-    long long id = jsonObject.value("id").toVariant().toLongLong();
-    QString typeString = jsonObject["type"].toString();// ninjam OR realtime
+    auto serverNameText = jsonObject.contains("name") ? jsonObject["name"].toString() : QString("Error");
+    auto name =  getServerName(serverNameText);
+    int port = getServerPort(serverNameText);
+    int maxUsers = jsonObject.contains("user_max") ? jsonObject["user_max"].toString().toInt() : getServerGuessedMaxUsers(name, port);
+    auto streamLink = jsonObject.contains("stream") ? jsonObject["stream"].toString() : QString("");
+    int bpi = jsonObject.contains("bpi") ? jsonObject["bpi"].toString().toInt() : 16;
+    int bpm = jsonObject.contains("bpm") ? jsonObject["bpm"].toString().toInt() : 120;
 
-    Login::RoomTYPE type
-        = (typeString == "ninjam") ? Login::RoomTYPE::NINJAM : Login::RoomTYPE::REALTIME;
-    QString name = jsonObject["name"].toString();
-    int port = jsonObject["port"].toInt();
-    int maxUsers = jsonObject["maxUsers"].toInt();
-    QString streamLink = jsonObject["streamUrl"].toString();
-    int bpi = jsonObject["bpi"].toInt();
-    int bpm = jsonObject["bpm"].toInt();
-
-    QJsonArray usersArray = jsonObject["users"].toArray();
+    auto usersArray = jsonObject.contains("users") ? jsonObject["users"].toArray() : QJsonArray();
     QList<UserInfo> users;
     for (int i = 0; i < usersArray.size(); ++i) {
-        QJsonObject userObject = usersArray[i].toObject();
-        long long userID = userObject.value("id").toVariant().toLongLong();
-        QString userName = userObject.value("name").toString();
-        QString userIp = userObject.value("ip").toString();
-        users.append(Login::UserInfo(userID, userName, userIp));
+        auto userObject = usersArray[i].toObject();
+        auto userName = userObject.contains("name") ? userObject["name"].toString() : QString("Error");
+        auto userIp = userObject.contains("ip") ? userObject["ip"].toString() : QString("Error");
+        float latitude = userObject.contains("lat") ? userObject["lat"].toString().toFloat() : 0;
+        float longitude = userObject.contains("lon") ? userObject["lon"].toString().toFloat() : 0;
+        auto countryName = userObject.contains("country") ? userObject["country"].toString() : QString("");
+        auto countryCode = userObject.contains("co") ? userObject["co"].toString() : QString("");
+        users.append(login::UserInfo(userName, userIp, countryName, countryCode, latitude, longitude));
     }
-    return Login::RoomInfo(id, name, port, type, maxUsers, users, 0, bpi, bpm, streamLink);
+    return RoomInfo(name, port, maxUsers, users, 0, bpi, bpm, streamLink);
 }

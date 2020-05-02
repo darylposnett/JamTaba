@@ -2,8 +2,7 @@
 #define MAINWINDOWPLUGIN_H
 
 #include "gui/MainWindow.h"
-#include "NinjamRoomWindowPlugin.h"
-#include "MainControllerPlugin.h"
+#include "MainControllerPlugin.h" // necessary to return covariant type
 
 class NinjamRoomWindowPlugin;
 
@@ -12,9 +11,9 @@ class MainWindowPlugin : public MainWindow
     Q_OBJECT
 
 public:
-    MainWindowPlugin(MainControllerPlugin *mainController);
+    explicit MainWindowPlugin(MainControllerPlugin *mainController);
 
-    inline MainControllerPlugin *getMainController() override
+    inline MainControllerPlugin *getMainController() const override
     {
         return dynamic_cast<MainControllerPlugin *>(mainController);
     }
@@ -22,9 +21,9 @@ public:
     TextEditorModifier *createTextEditorModifier() override;
 
 protected:
-    NinjamRoomWindow *createNinjamWindow(const Login::RoomInfo &, Controller::MainController *) override;
+    NinjamRoomWindow *createNinjamWindow(const login::RoomInfo &, controller::MainController *) override;
 
-    void initializeLocalSubChannel(LocalTrackView *subChannelView, const Persistence::Subchannel &subChannel) override;
+    void initializeLocalSubChannel(LocalTrackView *subChannelView, const persistence::SubChannel &subChannel) override;
 
     void removeAllInputLocalTracks() override;
 

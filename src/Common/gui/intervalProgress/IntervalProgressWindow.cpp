@@ -1,11 +1,13 @@
 #include "IntervalProgressWindow.h"
+#include "log/Logging.h"
+
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QtGlobal>
 #include <QDialog>
 #include <QIcon>
 
-IntervalProgressWindow::IntervalProgressWindow(QWidget *parent, IntervalProgressDisplay::PaintShape paintShape, int beatsPerInterval, int beatsPerAccent, bool showingAccents)
+IntervalProgressWindow::IntervalProgressWindow(QWidget *parent, IntervalProgressDisplay::PaintShape paintShape, int beatsPerInterval, QList<int> accentBeats, bool showingAccents)
     :QDialog(parent)
 {
 
@@ -14,13 +16,13 @@ IntervalProgressWindow::IntervalProgressWindow(QWidget *parent, IntervalProgress
     progressDisplay = new IntervalProgressDisplay(this);
     progressDisplay->setObjectName(QStringLiteral("intervalPanel"));
     progressDisplay->setBeatsPerInterval(beatsPerInterval);
-    progressDisplay->setBeatsPerAccent(beatsPerAccent);
+    progressDisplay->setAccentBeats(accentBeats);
     progressDisplay->setShowAccents(showingAccents);
     setIntervalProgressShape(paintShape);
 
-    progressDisplay->setSizePolicy(QSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding));
+    progressDisplay->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
 
-    setSizePolicy(QSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum));
+    setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->addWidget(progressDisplay, 1);
@@ -60,9 +62,9 @@ void IntervalProgressWindow::setCurrentBeat(int currentBeat)
      progressDisplay->setBeatsPerInterval(beatsPerInterval);
  }
 
- void IntervalProgressWindow::setBeatsPerAccent(int beatsPerAccent)
+ void IntervalProgressWindow::setAccentBeats(QList<int> accentBeats)
  {
-     progressDisplay->setBeatsPerAccent(beatsPerAccent);
+     progressDisplay->setAccentBeats(accentBeats);
  }
 
 //QSize IntervalProgressWindow::minimumSizeHint() const

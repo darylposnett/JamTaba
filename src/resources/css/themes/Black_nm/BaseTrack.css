@@ -9,8 +9,6 @@
 {
     font-size: 9px;
     border-color: rgb(20 ,20 ,20);
-    padding: 2px;
-
 }
 
 #buttonBoost,
@@ -22,49 +20,17 @@
 }
 
 
-#buttonBoost
+BoostSpinBox
 {
-   padding: 1px;
-   padding-top: 3px;
-   padding-bottom: 3px;
    border-radius: 1px;
-}
+   /*padding: -1px; /* necessary to fix the border padding */
 
-#buttonBoost:disabled
-{
-    color: rgba(0, 0, 0, 100);
-}
-
-#buttonBoost:checked
-{
-    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:0.95, stop:0 rgb(100, 100, 100), stop:1 rgb(80, 80, 80));
-    color: rgba(0, 0, 0, 160);
-    border-radius: 0px;
-    border-color: rgb(20, 20, 20);
-}
-
-#buttonBoost:hover
-{
-    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:0.95, stop:0 rgb(180, 180, 180), stop:1 rgb(120, 120, 120));
-    color: rgb(80, 80, 80);
-    border-radius: 0px;
-    border-color: rgb(40, 40, 40);
-}
-
-#buttonBoost:hover:checked
-{
-    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:0.95, stop:0 rgb(120, 120, 120), stop:1 rgb(80, 80, 80));
-    color: rgb(40, 40, 40);
-    border-radius: 0px;
-    border-color: rgb(20, 20, 20)
 }
 
 QPushButton#buttonStereoInversion
 {
     background-repeat: none;
     background-position: center center;
-    max-width: 8px;
-    max-height: 12px;
     background-color: qlineargradient(x1:0, y1:0, x2:0, y2:0.95, stop:0 rgb(140, 140, 140), stop:1 rgb(120, 120, 120));
 }
 
@@ -87,7 +53,8 @@ QPushButton#buttonStereoInversion:hover
 BaseTrackView[unlighted="true"] #buttonBoost,
 BaseTrackView[unlighted="true"] #soloButton,
 BaseTrackView[unlighted="true"] #muteButton,
-BaseTrackView[unlighted="true"] QPushButton#buttonStereoInversion
+BaseTrackView[unlighted="true"] QPushButton#buttonStereoInversion,
+BaseTrackView[unlighted="true"] BoostSpinBox
 {
     background-color: rgba(0, 0, 0, 30);
     border: none;
@@ -98,14 +65,6 @@ BaseTrackView[unlighted="true"] #buttonBoost:checked
 {
     color: rgb(180, 180, 180);
 }
-
-/*#buttonBoostZero:buttonStereoInversion
-{
-    border-bottom: none;
-    border-top: none;
-    border-style: solid;
-    border-color: rgb(20, 20, 20);
-}*/
 
 #soloButton:checked
 {
@@ -121,7 +80,7 @@ BaseTrackView[unlighted="true"] #buttonBoost:checked
 
 #soloButton:hover
 {
-        background-color: qlineargradient(x1:0, y1:0, x2:0, y2:0.95, stop:0 rgb(180, 180, 180), stop:1 rgb(120, 120, 120));
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:0.95, stop:0 rgb(180, 180, 180), stop:1 rgb(120, 120, 120));
     color: rgb(80, 80, 80);
 }
 
@@ -150,11 +109,11 @@ BaseTrackView[unlighted="true"] #buttonStereoInversion:hover:checked
 
 BaseTrackView
 {
-    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-        stop:0 rgb(70, 70, 70),
-        stop:1 rgb(30, 30, 30));
+    background: none;
 
     border: none; /*1px solid rgb(61, 61, 61);*/
+    border-right: 1px solid rgba(0, 0, 0, 40);
+    border-left: 1px solid rgba(0, 0, 0, 40);
     font-size: 8px;
 }
 
@@ -167,8 +126,15 @@ BaseTrackView[unlighted="true"] #levelSlider::handle:vertical,    /* track fader
 #panSlider::handle:disabled,
 #levelSlider::handle:vertical:disabled
 {
-    border: 1px outset rgb(60, 60, 60);
-    background: rgb(80, 80, 80);
+    border: 1px outset rgba(60, 60, 60, 180);
+    background: rgb(80, 80, 80, 200);
+}
+
+
+BaseTrackView[unlighted="true"] #panSlider::handle:hover,
+BaseTrackView[unlighted="true"] #levelSlider::handle:hover
+{
+    background-color: rgb(120, 120, 120);
 }
 
 BaseTrackView[unlighted="true"],                            /* the track */
@@ -182,15 +148,22 @@ TrackGroupView[unlighted="true"] > #topPanel                /* the track group t
 #panSlider::handle,
 #levelSlider::handle
 {
-    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:0.95, stop:0 rgb(180, 180, 180), stop:1 rgb(120, 120, 120));
-    border: 1px outset rgb(30, 30, 30);
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:0.95,
+        stop:0 rgba(180, 180, 180, 140),
+        stop:1 rgba(120, 120, 120, 140));
+
+    border: 1px outset rgba(30, 30, 30, 140);
 
 }
 
 #panSlider::handle:hover,
 #levelSlider::handle:hover
 {
-    background-color: rgb(180, 180, 180);
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:0.95,
+        stop:0 rgba(180, 180, 180, 180),
+        stop:1 rgba(120, 120, 120, 180));
+
+    border: 1px outset rgb(30, 30, 30);
 }
 
 AudioMeter
@@ -201,6 +174,13 @@ AudioMeter
 
 /* TrackGroup - used as container for subchannels
 ---------------------------------------------------*/
+
+TrackGroupView
+{
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+    stop:0 rgb(70, 70, 70),
+    stop:1 rgb(30, 30, 30));
+}
 
 TrackGroupView #topPanel                                /* topPanel is used to show channel name */
 {

@@ -1,58 +1,65 @@
+#ifndef VORBIS_DECODER_H
+#define VORBIS_DECODER_H
+
 #include <vorbis/vorbisfile.h>
 #include "audio/core/SamplesBuffer.h"
 #include <QByteArray>
 
-#ifndef VORBIS_DECODER_H
-#define VORBIS_DECODER_H
+namespace vorbis {
 
-class VorbisDecoder
+class Decoder
 {
+
 public:
-    VorbisDecoder();
-    ~VorbisDecoder();
-    const Audio::SamplesBuffer &decode(int maxSamplesToDecode);
 
-    inline bool isStereo() const
-    {
-        return getChannels() == 2;
-    }
+    Decoder();
+    ~Decoder();
+    const audio::SamplesBuffer &decode(int maxSamplesToDecode);
 
-    inline bool isMono() const
-    {
-        return vorbisFile.vi->channels == 1;
-    }
+    bool isStereo() const;
 
-    inline int getChannels() const
-    {
-        return vorbisFile.vi->channels;
-    }
+    bool isMono() const;
 
-    inline int getSampleRate() const
-    {
-        if (vorbisFile.vi)
-            return vorbisFile.vi->rate;
-        return 44100;
-    }
+    int getChannels() const;
 
-    inline bool isInitialized() const
-    {
-        return initialized;
-    }
+    int getSampleRate() const;
+
+    bool isInitialized() const;
 
     void setInputData(const QByteArray &vorbisData);
 
+    void addInputData(const QByteArray &vorbisData);
+
     bool initialize();
+
+    bool isFinished() const { return finished; }
+
+    bool isValid() const { return valid; }
 
 private:
 
-    Audio::SamplesBuffer internalBuffer;
+    audio::SamplesBuffer internalBuffer;
     OggVorbis_File vorbisFile;
     bool initialized;
     QByteArray vorbisInput;
-    float **outBuffer;
     static size_t readOgg(void *oggOutBuffer, size_t size, size_t nmemb, void *decoderInstance);
 
     size_t consumeTo(void *oggOutBuffer, size_t bytesToConsume);
+
+    bool finished = false; // all input was decoded
+    bool valid = true;// will be flagged as invalid when an error is detected
 };
+
+inline bool Decoder::isStereo() const
+{
+    return getChannels() == 2;
+}
+
+inline bool Decoder::isInitialized() const
+{
+    return initialized;
+}
+
+} // namespace
 
 #endif

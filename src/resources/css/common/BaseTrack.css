@@ -2,13 +2,49 @@
     This file contain common stylesheet to all tracks: local tracks, ninjam tracks and track groups.
 */
 
-
 /* Basic boost (-12, 0, +12) button stylesheet:
 --------------------------------------*/
-#buttonBoost
+BoostSpinBox
 {
-   margin: 0px;
-   font-size: 8px;
+    padding: 0px;
+    margin: 0px;
+}
+
+BoostSpinBox > QToolButton
+{
+    border: transparent;
+    margin: 0px;
+    padding: 1px;
+
+    max-width: 12px;
+    max-height: 12px;
+}
+
+NinjamTrackView[horizontal="false"] BoostSpinBox,
+LocalTrackView BoostSpinBox
+{
+    min-width: 18px;
+}
+
+NinjamTrackView[horizontal="true"] BoostSpinBox
+{
+    min-height: 18px;
+}
+
+#soloButton,
+#muteButton,
+#buttonStereoInversion,
+#buttonLooper,
+#lowCutButton,
+#receiveButton
+{
+    padding: 1px;
+    min-width: 16px;
+    min-height: 16px;
+    max-height: 16px;
+    max-width: 16px;
+    width: 16px;
+    height: 16px;
 }
 
 #soloButton,
@@ -16,7 +52,6 @@
 {
     font-size: 9px;
     border-color: rgb(110,110,110);
-    padding: 2px;
     color: rgb(50,50,50);
 }
 
@@ -32,25 +67,12 @@ QPushButton#buttonStereoInversion
 {
     background-repeat: none;
     background-position: center center;
-    max-width: 8px;
-    max-height: 12px;
     background-color: rgb(235, 235, 235);
 }
 
 LocalTrackView[unlighted="true"] #buttonStereoInversion
 {
     background-color: rgba(0, 0, 0, 30);
-}
-
-
-QPushButton#buttonStereoInversion:!checked
-{
-    background-image: url(':/images/stereo_normal.png');
-}
-
-QPushButton#buttonStereoInversion:checked
-{
-    background-image: url(':/images/stereo_inverted.png');
 }
 
 
@@ -76,29 +98,11 @@ BaseMeter
     background-color: rgba(0, 0, 0, 20);
 }
 
-AudioMeter
-{
-    qproperty-dBMarksColor: black;
-    border: 1px solid rgb(0, 0, 0, 30);
-    font-size: 8px;
-}
-
-/*
-Peak meter color when the tracks are "disabled". For local tracks this color is
-used when xmit is off, and for remote tracks (ninjam tracks) this color is used when
-user is not transmiting.
------------------------------------------------------------------------------------*/
-
-BaseTrackView[unlighted="true"] BaseMeter{
-    background-color: rgba(0, 0, 0, 15);
-}
-
-
-
 /* TrackGroupView is the 'container' for tracks/subchannels in local tracks or ninjam tracks.
 ----------------------------------------------------------------------------------------------*/
 
-TrackGroupView {
+TrackGroupView
+{
     border: none;
     background-color: none;
 }

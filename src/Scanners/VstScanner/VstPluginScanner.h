@@ -13,11 +13,11 @@ private:
     bool canScan(const QFileInfo &pluginFileInfo) const;
 
     QStringList foldersToScan;
-    QStringList skipList; //contain blackListed and cached plugins
+    QStringList skipList; // contain blackListed and cached plugins
 
     void initialize(int argc, char *argv[]) override;
 
-    Audio::PluginDescriptor getPluginDescriptor(const QFileInfo &pluginFile);
+    audio::PluginDescriptor getPluginDescriptor(const QFileInfo &pluginFile);
 
 protected:
 

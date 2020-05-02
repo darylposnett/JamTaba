@@ -4,12 +4,16 @@
 #include <QString>
 #include <QLayout>
 
-namespace Gui {
+namespace gui {
 
-QString capitalize(const QString &string);
+    QString capitalize(const QString &string);
 
-void setLayoutItemsVisibility(QLayout *layout, bool visible);
+    void setLayoutItemsVisibility(QLayout *layout, bool visible);
 
-}//namespace Gui
+    QString sanitizeServerName(const QString &serverName);
+
+    void clearLayout(QLayout *layout);
+
+} // namespace
 
 #endif

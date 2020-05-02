@@ -1,15 +1,11 @@
 #include "MainControllerPlugin.h"
 #include "midi/MidiDriver.h"
 #include "audio/core/LocalInputNode.h"
-#include "MainWindow.h"
+#include "gui/MainWindow.h"
 #include "JamTabaPlugin.h"
 #include "log/Logging.h"
-//#include "Editor.h"
 
-using namespace Controller;
-
-// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-MainControllerPlugin::MainControllerPlugin(const Persistence::Settings &settings, JamTabaPlugin *plugin) :
+MainControllerPlugin::MainControllerPlugin(const Settings &settings, JamTabaPlugin *plugin) :
     MainController(settings),
     plugin(plugin)
 {
@@ -22,13 +18,13 @@ MainControllerPlugin::~MainControllerPlugin()
         saveLastUserSettings(mainWindow->getInputsSettings());
 }
 
-Persistence::Preset MainControllerPlugin::loadPreset(const QString &name)
+persistence::Preset MainControllerPlugin::loadPreset(const QString &name)
 {
-    return settings.readPresetFromFile(name, false);//don't allow multi subchannels in vst plugin and avoid hacking in json file to create subchannels in VSt plugin.
+    return settings.readPresetFromFile(name, false); // don't allow multi subchannels in vst plugin and avoid hacking in json file to create subchannels in VSt plugin.
 }
 
-// +++++++++++++++++++++++++++++++++++++
-int MainControllerPlugin::addInputTrackNode(Audio::LocalInputNode *inputTrackNode)
+
+int MainControllerPlugin::addInputTrackNode(audio::LocalInputNode *inputTrackNode)
 {
     int inputTrackID = MainController::addInputTrackNode(inputTrackNode);
 
@@ -43,7 +39,6 @@ QString MainControllerPlugin::getUserEnvironmentString() const
     return MainController::getUserEnvironmentString() + " running in " + getHostName();
 }
 
-// +++++++++++++++++++++++++++++++++++++
 QString MainControllerPlugin::getHostName() const
 {
     if (plugin)
@@ -77,9 +72,9 @@ NinjamControllerPlugin *MainControllerPlugin::createNinjamController()
     return new NinjamControllerPlugin(const_cast<MainControllerPlugin*>(this));
 }
 
-Midi::MidiDriver *MainControllerPlugin::createMidiDriver()
+midi::MidiDriver *MainControllerPlugin::createMidiDriver()
 {
-    return new Midi::NullMidiDriver();
+    return new midi::NullMidiDriver();
 }
 
 void MainControllerPlugin::setCSS(const QString &css)
@@ -87,7 +82,7 @@ void MainControllerPlugin::setCSS(const QString &css)
     
     if (qApp) {
         qCDebug(jtCore) << "setting CSS";
-        qApp->setStyleSheet(css);// qApp is a global variable created in dll main.
+        qApp->setStyleSheet(css); // qApp is a global variable created in dll main.
     }
     else
     {

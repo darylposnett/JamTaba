@@ -4,16 +4,19 @@
 
 #include <QDebug>
 
-using namespace Audio;
-
-// ----------------------------------------------------
+using audio::LooperState;
+using audio::StoppedState;
+using audio::WaitingToRecordState;
+using audio::PlayingState;
+using audio::RecordingState;
+using audio::Looper;
+using audio::SamplesBuffer;
 
 LooperState::LooperState(Looper *looper)
     : looper(looper)
 {
 
 }
-
 
 // ------------------------------------------------
 
@@ -85,7 +88,7 @@ void PlayingState::mixTo(SamplesBuffer &samples, uint samplesToProcess)
     }
 }
 
-// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++=
+// -------------------------------------------------------
 
 RecordingState::RecordingState(Looper *looper, quint8 recordingLayer)
     : LooperState(looper),

@@ -11,14 +11,15 @@
 
 #include "audio/Resampler.h"
 
-using namespace Audio;
+using audio::AudioNode;
+using audio::SamplesBuffer;
+using audio::AudioPeak;
+using audio::AudioNodeProcessor;
 
-const double AudioNode::ROOT_2_OVER_2 = 1.414213562373095 *0.5;
+const double AudioNode::ROOT_2_OVER_2 = 1.414213562373095 * 0.5;
 const double AudioNode::PI_OVER_2 = 3.141592653589793238463 * 0.5;
 
-// +++++++++++++++
-
-void AudioNode::processReplacing(const SamplesBuffer &in, SamplesBuffer &out, int sampleRate, std::vector<Midi::MidiMessage> &midiBuffer)
+void AudioNode::processReplacing(const SamplesBuffer &in, SamplesBuffer &out, int sampleRate, std::vector<midi::MidiMessage> &midiBuffer)
 {
     Q_UNUSED(in);
 
@@ -30,22 +31,21 @@ void AudioNode::processReplacing(const SamplesBuffer &in, SamplesBuffer &out, in
 
     {
         QMutexLocker locker(&mutex);
-        foreach (AudioNode *node, connections)  // ask connected nodes to generate audio
-            node->processReplacing(internalInputBuffer, internalOutputBuffer, sampleRate,
-                                   midiBuffer);
+        for (auto node : connections) { // ask connected nodes to generate audio
+            node->processReplacing(internalInputBuffer, internalOutputBuffer, sampleRate, midiBuffer);
+        }
     }
 
-    internalOutputBuffer.set(internalInputBuffer);// if we have no plugins inserted the input samples are just copied  to output buffer.
-
+    internalOutputBuffer.set(internalInputBuffer); // if we have no plugins inserted the input samples are just copied  to output buffer.
 
     static SamplesBuffer tempInputBuffer(2);
 
     // process inserted plugins
     for (int i=0; i < MAX_PROCESSORS_PER_TRACK; ++i) {
-        AudioNodeProcessor *processor = processors[i];
+        auto processor = processors[i];
         if (processor && !processor->isBypassed()) {
             tempInputBuffer.setFrameLenght(internalOutputBuffer.getFrameLenght());
-            tempInputBuffer.set(internalOutputBuffer); //the output from previous plugin is used as input to the next plugin in the chain
+            tempInputBuffer.set(internalOutputBuffer); // the output from previous plugin is used as input to the next plugin in the chain
 
             processor->process(tempInputBuffer, internalOutputBuffer, midiBuffer);
 
@@ -79,30 +79,31 @@ AudioNode::AudioNode() :
     internalInputBuffer(2),
     internalOutputBuffer(2),
     lastPeak(),
+    pan(0),
+    leftGain(1.0),
+    rightGain(1.0),
     muted(false),
     soloed(false),
     activated(true),
     gain(1),
     boost(1),
-    pan(0),
-    leftGain(1.0),
-    rightGain(1.0),
     resamplingCorrection(0)
 {
-    for(int i=0; i < MAX_PROCESSORS_PER_TRACK; ++i)
+
+    for (int i=0; i < MAX_PROCESSORS_PER_TRACK; ++i) {
         processors[i] = nullptr;
+    }
 }
 
-std::vector<Midi::MidiMessage> AudioNode::pullMidiMessagesGeneratedByPlugins() const
+std::vector<midi::MidiMessage> AudioNode::pullMidiMessagesGeneratedByPlugins() const
 {
-    return std::vector<Midi::MidiMessage>(); // returning empty vector by default, is overrided in LocalInputNode
+    return std::vector<midi::MidiMessage>(); // returning empty vector by default, is overrided in LocalInputNode
 }
 
-int AudioNode::getInputResamplingLength(int sourceSampleRate, int targetSampleRate,
-                                        int outFrameLenght)
+int AudioNode::getInputResamplingLength(int sourceSampleRate, int targetSampleRate, int outFrameLenght)
 {
-    double doubleValue = (double)sourceSampleRate*(double)outFrameLenght/(double)targetSampleRate;
-    int intValue = (int)doubleValue;
+    double doubleValue = static_cast<double>(sourceSampleRate) * static_cast<double>(outFrameLenght) / static_cast<double>(targetSampleRate);
+    int intValue = static_cast<int>(doubleValue);
     resamplingCorrection += doubleValue - intValue;
     if (qAbs(resamplingCorrection) > 1) {
         intValue += resamplingCorrection;
@@ -111,10 +112,11 @@ int AudioNode::getInputResamplingLength(int sourceSampleRate, int targetSampleRa
         else
             resamplingCorrection++;
     }
+
     return intValue;
 }
 
-Audio::AudioPeak AudioNode::getLastPeak() const
+AudioPeak AudioNode::getLastPeak() const
 {
     return this->lastPeak;
 }
@@ -128,22 +130,28 @@ void AudioNode::setPan(float pan)
 {
     if (pan < -1)
         pan = -1;
+
     if (pan > 1)
         pan = 1;
+
     this->pan = pan;
+
     updateGains();
+
     emit panChanged(this->pan);
 }
 
 void AudioNode::setGain(float gainValue)
 {
     this->gain = gainValue;
+
     emit gainChanged(this->gain);
 }
 
 void AudioNode::setBoost(float boostValue)
 {
     this->boost = boostValue;
+
     emit boostChanged(this->boost);
 }
 
@@ -192,7 +200,9 @@ AudioNode::~AudioNode()
 bool AudioNode::connect(AudioNode &other)
 {
     QMutexLocker(&(other.mutex));
+
     other.connections.insert(this);
+
     return true;
 }
 

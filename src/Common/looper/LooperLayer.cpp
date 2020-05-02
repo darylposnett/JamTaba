@@ -7,20 +7,20 @@
 
 #include <QDebug>
 
-using namespace Audio;
-using namespace std;
+using audio::LooperLayer;
+using audio::SamplesBuffer;
 
-LooperLayer::LooperLayer()
-    : availableSamples(0),
-      lastSamplesPerPeak(0),
-      lastCacheComputationSample(0),
-      locked(false),
-      lastCycleLenght(0),
-      gain(1.0),
-      pan(0),
-      leftGain(1),
-      rightGain(1),
-      muteState(MuteState::Unmuted)
+LooperLayer::LooperLayer() :
+    lastSamplesPerPeak(0),
+    availableSamples(0),
+    lastCacheComputationSample(0),
+    lastCycleLenght(0),
+    locked(false),
+    gain(1.0),
+    pan(0),
+    leftGain(1),
+    rightGain(1),
+    muteState(MuteState::Unmuted)
 {
     setPan(0); // center
 }
@@ -76,7 +76,7 @@ void LooperLayer::setSamples(const SamplesBuffer &samples)
     availableSamples = samplesToCopy;
 
 
-    //rebuild peaks cache
+    // rebuild peaks cache
     lastCacheComputationSample = 0;
     peaksCache.clear();
 

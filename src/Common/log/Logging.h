@@ -27,6 +27,8 @@ Q_DECLARE_LOGGING_CATEGORY(jtAudio)
 Q_DECLARE_LOGGING_CATEGORY(jtMidi)
 // Q_DECLARE_LOGGING_CATEGORY(jtJoystick) ToDOooo
 Q_DECLARE_LOGGING_CATEGORY(jtConfigurator)
+Q_DECLARE_LOGGING_CATEGORY(jtMetronome)
+Q_DECLARE_LOGGING_CATEGORY(jtSettings)
 
 void jamtabaLogHandler(QtMsgType, const QMessageLogContext &, const QString &);
 

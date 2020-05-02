@@ -5,8 +5,9 @@
 
 class MainControllerPlugin;
 
-class NinjamControllerPlugin : public Controller::NinjamController
+class NinjamControllerPlugin : public controller::NinjamController
 {
+
 public:
     explicit NinjamControllerPlugin(MainControllerPlugin *controller);
 
@@ -16,7 +17,7 @@ public:
     void stopAndWaitForHostSync();
     void disableHostSync();
 
-    void process(const Audio::SamplesBuffer &in, Audio::SamplesBuffer &out, int sampleRate);
+    void process(const audio::SamplesBuffer &in, audio::SamplesBuffer &out, int sampleRate);
 
 private:
 

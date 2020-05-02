@@ -1,6 +1,7 @@
 /* Dialogs in Volcano theme
 -------------------------------------*/
 
+PrivateServerWindow,
 PreferencesDialog
 {
     background-color: #BD5A1D;
@@ -10,7 +11,9 @@ QMessageBox,
 QInputDialog,
 MidiToolsDialog,
 UserNameDialog,
-PrivateServerDialog
+PrivateServerDialog,
+#instrumentsMenu,
+ChordProgressionCreationDialog
 {
     border-color: rgb(20, 20, 20);
     color: rgb(220, 220, 220);
@@ -35,7 +38,13 @@ UserNameDialog #label
     color: black;
 }
 
-PreferencesDialog #tabAudio, #tabMidi, #tabVST, #tabRecording, #tabMetronome, #tabLooper
+PreferencesDialog #tabAudio,
+PreferencesDialog #tabMidi,
+PreferencesDialog #tabVST,
+PreferencesDialog #tabRecording,
+PreferencesDialog #tabMetronome,
+PreferencesDialog #tabLooper,
+PreferencesDialog #tabRemember
 {
     border: none;
     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
@@ -68,7 +77,8 @@ PreferencesDialog QComboBox QAbstractItemView      /* the colors inside drop dow
 PreferencesDialog QComboBox:disabled,
 PreferencesDialog QLabel:disabled,
 PreferencesDialog QGroupBox#groupBoxBuiltInMetronomes[checked=false],
-PreferencesDialog QGroupBox#groupBoxCustomMetronome[checked=false]
+PreferencesDialog QGroupBox#groupBoxCustomMetronome[checked=false],
+PreferencesDialog QGroupBox#groupBoxOutputs
 {
 color: rgba(0, 0, 0, 90);
 }
@@ -233,6 +243,16 @@ PrivateServerDialog QComboBox QAbstractItemView
     background-color: rgba(254, 181, 102, 150);
     selection-background-color: rgb(179, 89, 37);
     selection-color: rgb(254, 181, 102);
+}
+
+ChordProgressionCreationDialog QComboBox
+{
+    min-width: 20px;
+}
+
+ChordProgressionCreationDialog QComboBox:focus
+{
+    border: 1px solid rgb(255, 50, 50);
 }
 
 BusyDialog

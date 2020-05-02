@@ -7,42 +7,43 @@
 #include <QScopedPointer>
 #include "audio/SamplesBufferResampler.h"
 
-namespace Midi {
+namespace midi {
 class MidiMessage;
 }
 
-namespace Controller {
-    class MainController;
-}
+namespace audio {
 
-namespace Audio {
 class AudioNode;
 class SamplesBuffer;
 class LocalInputNode;
 
 class AudioMixer
 {
+
 private:
     AudioMixer(const AudioMixer &other);
+
 public:
-    AudioMixer(int sampleRate);
+    explicit AudioMixer(int sampleRate);
     ~AudioMixer();
-    void process(const SamplesBuffer &in, SamplesBuffer &out, int sampleRate, const std::vector<Midi::MidiMessage> &midiBuffer, bool attenuateAfterSumming = false);
+    void process(const SamplesBuffer &in, SamplesBuffer &out, int sampleRate, const std::vector<midi::MidiMessage> &midiBuffer, bool attenuateAfterSumming = false);
     void addNode(AudioNode *node);
     void removeNode(AudioNode *node);
 
-    inline void setSampleRate(int newSampleRate)
-    {
-        this->sampleRate = newSampleRate;
-    }
+    void setSampleRate(int newSampleRate);
 
 private:
     QList<AudioNode *> nodes;
     int sampleRate;
-    QMap<AudioNode *, SamplesBufferResampler *> resamplers;
-    Controller::MainController *mainController;
+    QMap<AudioNode *, SamplesBufferResampler> resamplers;
+
 };
-// +++++++++++++++++++++++
+
+inline void AudioMixer::setSampleRate(int newSampleRate)
+{
+    sampleRate = newSampleRate;
 }
+
+} // namespace
 
 #endif

@@ -1,13 +1,11 @@
 #include "BpiUtils.h"
 
-BpiUtils::BpiUtils()
-{
-}
+#include <QtGlobal>
 
-QList<int> BpiUtils::getBpiDividers(int targetBpi)
+QList<uint> bpiUtils::getBpiDividers(uint targetBpi)
 {
-    QList<int> foundedDividers;
-    int divider = 2;
+    QList<uint> foundedDividers;
+    uint divider = 2;
     while (divider <= targetBpi / 2) {
         if (targetBpi % divider == 0)
             foundedDividers.append(divider);
@@ -15,6 +13,7 @@ QList<int> BpiUtils::getBpiDividers(int targetBpi)
     }
 
     if (foundedDividers.isEmpty())
-        foundedDividers.append(targetBpi);// using bpi as default
+        foundedDividers.append(targetBpi); // using bpi as default
+
     return foundedDividers;
 }

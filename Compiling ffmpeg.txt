@@ -1,0 +1,36 @@
+Compiling FFMpeg in Windows MSVC
+
+Open a common prompt (not the power shell) and run the MSVC shell:
+	32 bits - "C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\vcvarsall.bat x86"
+	64 bits - "C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\vcvarsall.bat x86_amd64"
+
+------------------------------------------------
+
+Compiling 64 bits
+
+Compiling libx264: 
+
+First install "nasm" and put the exe path in the system PATH
+
+CC=cl ./configure --enable-static --prefix=. --extra-cflags="-DNO_PREFIX"
+
+
+Compiling FFmpeg
+
+./configure --toolchain=msvc --enable-asm --enable-yasm --enable-stripping --prefix="E:/ffmpeg-release-64bits" --enable-static --disable-shared --disable-everything --disable-programs --disable-doc --disable-avdevice --disable-postproc --disable-avfilter --disable-debug --enable-network --enable-gpl --enable-libx264 --enable-decoder=h264,mp3,mpeg4 --enable-encoder=h264,mpeg4 --enable-parser=h264,mp4 --enable-demuxer=mp3,h264,rtp,rtsp,avi,mp4 --enable-muxer=rtp,rtsp,mp3,flv,h264,avi,mp4 --enable-protocol=httpproxy,rtmpt,https,rtmpts,rtp,tcp,file,rtmp,rtmps,http --enable-libx264 --enable-encoder=libx264 --enable-decoder=h264 --extra-cflags="-MD -DNO_PREFIX" --extra-cxxflags="-MD" --extra-ldflags="/NODEFAULTLIB:libcmt"
+
+The generated libs (with .a extension) need be renamed to .lib
+
+------------------------------------------------
+
+Compilig 64 bits DEBUG version
+
+use: --extra-cflags="-MDd" 
+
+------------------------------------------------
+
+Compiling 32 bits
+
+add the --arch=i686 option
+
+

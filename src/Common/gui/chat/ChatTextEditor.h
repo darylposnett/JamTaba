@@ -6,13 +6,19 @@
 class ChatTextEditor : public QTextBrowser
 {
 public:
-    ChatTextEditor(QWidget *parent);
+    explicit ChatTextEditor(QWidget *parent);
 
     QSize sizeHint() const override;
     QSize minimumSizeHint() const override;
 
+private slots:
+    void updateWidth();
+
 private:
-    int getMinimumHeight() const;
+    quint32 computeBestWidth() const;
+    quint32 bestWidth;
+
+    uint getEmojisCount() const;
 
 };
 

@@ -2,7 +2,7 @@
 #include "log/Logging.h"
 #include "MidiMessage.h"
 
-using namespace Midi;
+using midi::MidiDriver;
 
 MidiDriver::MidiDriver()
 {
@@ -31,5 +31,6 @@ bool MidiDriver::deviceIsGloballyEnabled(int deviceIndex) const
 {
     if (deviceIndex >= 0 && deviceIndex < inputDevicesEnabledStatuses.size())
         return inputDevicesEnabledStatuses.at(deviceIndex);
+
     return false;
 }

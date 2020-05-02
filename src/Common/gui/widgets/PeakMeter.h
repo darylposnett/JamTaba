@@ -13,17 +13,17 @@ public:
     virtual ~BaseMeter();
     void setDecayTime(quint32 decayTimeInMiliseconds);
     virtual void setOrientation(Qt::Orientation orientation);
-    QSize minimumSizeHint() const override;
     virtual void updateStyleSheet();
+
 protected:
 
     virtual void recreateInterpolatedColors() = 0;
 
     void resizeEvent(QResizeEvent *) override;
 
-    void paintSegments(QPainter &painter, const QRectF &rect, float rawPeakValue, const std::vector<QColor> &segmentsColors);
+    void paintSegments(QPainter &painter, const QRectF &rect, float rawPeakValue, const std::vector<QColor> &segmentsColors, bool drawSegments = true);
 
-    inline bool isVertical() const { return orientation == Qt::Vertical; }
+    bool isVertical() const;
 
     static float limitFloatValue(float value, float minValue = 0.0f, float maxValue = 1.0f);
 
@@ -36,9 +36,13 @@ protected:
     static const quint8 SEGMENTS_SIZE;
 
     static const int LINES_MARGIN;
-    static const int MIN_SIZE;
     static const int DEFAULT_DECAY_TIME;
 };
+
+inline bool BaseMeter::isVertical() const
+{
+    return orientation == Qt::Vertical;
+}
 
 //========================================================================
 
@@ -46,21 +50,23 @@ class AudioMeter : public BaseMeter
 {
     Q_OBJECT
 
-
     // custom properties defined in CSS files
     Q_PROPERTY(QColor rmsColor MEMBER rmsColor WRITE setRmsColor)
     Q_PROPERTY(QColor maxPeakColor MEMBER maxPeakColor WRITE setMaxPeakColor)
     Q_PROPERTY(QColor peakStartColor MEMBER peakStartColor WRITE setPeaksStartColor)
     Q_PROPERTY(QColor peakEndColor MEMBER peakEndColor WRITE setPeaksEndColor)
     Q_PROPERTY(QColor dBMarksColor MEMBER dBMarksColor WRITE setDbMarksColor)
+    Q_PROPERTY(bool drawSegments MEMBER drawSegments WRITE setDrawSegments)
 
 public:
-    AudioMeter(QWidget *parent);
+    explicit AudioMeter(QWidget *parent = nullptr);
 
     void setPeak(float peak, float rms);
     void setPeak(float leftPeak, float rightPeak, float leftRms, float rightRms);
 
     void updateStyleSheet() override;
+
+    void setPaintingDbMarkers(bool paintDbMarkers);
 
     // these functions will affect all meters
     static void setPaintMaxPeakMarker(bool paintMaxPeak);
@@ -80,6 +86,10 @@ public:
     void setPeaksEndColor(const QColor &newColor);
     void setDbMarksColor(const QColor &newColor);
 
+    void setDrawSegments(bool drawSegments);
+
+    QSize minimumSizeHint() const override;
+
 public slots:
     void setStereo(bool stereo);
 
@@ -92,6 +102,7 @@ protected:
 private:
     static const int MAX_PEAK_SHOW_TIME;
     static const int MAX_PEAK_MARKER_SIZE;
+    static const int MIN_SIZE;
 
     QColor rmsColor;
     QColor maxPeakColor;
@@ -99,10 +110,12 @@ private:
     QColor peakEndColor;    // end gradient color
     QColor dBMarksColor;
 
+    bool drawSegments;
+
     std::vector<QColor> peakColors;
     std::vector<QColor> rmsColors;
 
-    //static painting flags. Turning on/off will affect all audio meters.
+    // static painting flags. Turning on/off will affect all audio meters.
     static bool paintingMaxPeakMarker;
     static bool paintingPeaks;
     static bool paintingRMS;
@@ -116,6 +129,7 @@ private:
     bool stereo; // draw 2 meters?
 
     QPixmap dbMarkersPixmap;
+    bool paintingDbMarkers;
 
     static const float MAX_SMOOTHED_LINEAR_VALUE;
     static const float MIN_SMOOTHED_LINEAR_VALUE;
@@ -146,27 +160,34 @@ private:
 
 inline qreal AudioMeter::getSmoothedLinearPeakValue(qreal linearValue)
 {
-    const static qreal smoothFactor = 1/10.0f; // used to get more equally spaced markers
+    const static qreal smoothFactor = 1.0/10.0f; // used to get more equally spaced markers
 
     return std::pow(linearValue, smoothFactor);
 }
 
+
 class MidiActivityMeter : public BaseMeter
 {
+
 public:
-    MidiActivityMeter(QWidget *parent);
+    explicit MidiActivityMeter(QWidget *parent);
     void setSolidColor(const QColor &color);
     void setActivityValue(float value);
+
+    QSize minimumSizeHint() const override;
 
 protected:
     void paintEvent(QPaintEvent *event) override;
     void recreateInterpolatedColors() override;
+
 private:
     QColor midiActivityColor;
     std::vector<QColor> colors;
     float activityValue;
 
     void updateInternalValues();
+
+    static const int MIN_SIZE;
 };
 
 #endif
